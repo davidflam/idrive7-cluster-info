@@ -33,6 +33,8 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
 (async () => {
     const S = {}, changes = [];
     SPEC.settings.forEach((s) => { S[s.key] = s.default; });
+    // (the checks below are written in mph and Fahrenheit, whatever this build's defaults are)
+    Object.assign(S, { speedUnit: 'mph', tempUnit: 'f', timeZone: 'eastern', clock: '12' });
     const handlers = {}, clicks = {}, warns = [];
     let pages = 0;
     const ctx = {

@@ -2,7 +2,7 @@
   "id": "cluster_centre",
   "title": "Cluster Centre",
   "description": "Pages of engine, gearbox and eDrive data, warm-up, turbo cool-down, a shift light and a 0-60 timer in the centre of the factory cluster, drawn by the cluster itself",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "startType": "autostart",
   "vendor": "custom",
   "loggingId": "OA9M",
@@ -617,7 +617,7 @@
       "key": "tempUnit",
       "label": "Temperature unit",
       "type": "choice",
-      "default": "f",
+      "default": "c",
       "options": [
         [
           "f",
@@ -633,7 +633,7 @@
       "key": "pressUnit",
       "label": "Pressure unit",
       "type": "choice",
-      "default": "psi",
+      "default": "bar",
       "options": [
         [
           "psi",
@@ -653,7 +653,7 @@
       "key": "speedUnit",
       "label": "Speed and distance unit",
       "type": "choice",
-      "default": "mph",
+      "default": "kmh",
       "options": [
         [
           "mph",
@@ -669,7 +669,7 @@
       "key": "torqueUnit",
       "label": "Torque unit",
       "type": "choice",
-      "default": "lbft",
+      "default": "nm",
       "options": [
         [
           "lbft",
@@ -2043,7 +2043,7 @@
       "key": "timeZone",
       "label": "Time zone (the clock)",
       "type": "choice",
-      "default": "eastern",
+      "default": "utc-3",
       "options": [
         [
           "eastern",
@@ -2096,14 +2096,14 @@
         [
           "utc+9",
           "Korea / Japan (UTC+9)"
-        ]
+        ], ["utc-3", "Brazil: Brasília, São Paulo, Rio (UTC-3)"], ["utc-4", "Brazil: Manaus, Cuiabá (UTC-4)"], ["utc-5", "Brazil: Acre (UTC-5)"], ["utc-2", "Brazil: Fernando de Noronha (UTC-2)"]
       ]
     },
     {
       "key": "clock",
       "label": "Clock",
       "type": "choice",
-      "default": "12",
+      "default": "24",
       "options": [
         [
           "12",

@@ -110,3 +110,9 @@ published with.
 - Fonts: the cluster apps' Barlow, Michroma and Orbitron atlases and the bundled Noto Sans SC glyphs are under the SIL Open
   Font License 1.1 (`shared/NOTICE`, `kit/runtime/fonts/OFL-NotoSansSC.txt`).
 - The Chinese translation's credit is in [NOTICE.zh-CN.md](NOTICE.zh-CN.md). More in [NOTICE.md](NOTICE.md).
+
+## This fork
+
+For an electric car in Brazil (an iX3 G08): Settings > Vehicle has **Electric car**, Cluster Layouts has the **Electric**
+layout, the time zones list Brazil's (Brasília UTC-3, Manaus UTC-4, Acre UTC-5, Fernando de Noronha UTC-2; Brazil has
+no daylight saving), and the settings start metric: km/h, Celsius, bar, a 24-hour clock, Brasília's time.

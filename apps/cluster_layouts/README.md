@@ -40,6 +40,15 @@ with mph), the battery's temperature and its health; the range and the energy in
 engine speed, fuel, oil or coolant anywhere. The use, health and energy are eDrive's (2.10.16 or later shares them);
 without it they read --. Drawn in the preview only so far, not yet seen on a cluster.
 
+With the Waze map in the centre (and the car's own bottom strip), Settings > *Electric layout: the Waze map* gives
+Waze on cluster a larger window than the native map area (1088 x 480): **Large** (1408 x 464 between the arcs, the
+speed, power, charge, range and use in a row above it; the default) or **Largest** (1408 x 512, from the camera's
+cowl down to the strip, the same readings on a darkened bar over the map's bottom edge). Largest is experimental:
+Waze draws over the layout, so the bar asks the renderer for a place above the map, and whether it gets it is not yet
+seen on a car. **Standard** keeps the native area.
+
+![Electric with the Waze map, large](../../docs/electric_map.png)
+
 ![Electric](../../docs/electric.png)
 
 | Efficient colours, regenerating |

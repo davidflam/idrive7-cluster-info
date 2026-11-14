@@ -39,5 +39,22 @@ LAYOUTS.forEach((L) => ['phev', 'ice'].forEach((vehicle) => {
 }));
 // the engine draws every layout as an electric car's (the scene the previews use)
 LAYOUTS.forEach((L) => { const s = makeScene({ layout: L.id, options: { vehicle: 'bev', bottomStrip: 'stock', speedUnit: 'kmh' }, data: d }); assert(s.engine._pieces().length > 5, L.id); s.stop(); ok++; });
+// Electric's large Waze map: only with the car's strip and the Waze centre; nothing but the arcs' rectangles and
+// the backgrounds touch the window in 'wide'; 'overlay' puts its bar and readings over it, above the map (z)
+{
+    const E = LAYOUTS.find((l) => l.id === 'electric'), base = { speedUnit: 'kmh', tempUnit: 'c', centre: 'map', vehicle: 'bev', bottomStrip: 'stock', redline: 7000, rpmMax: 8000 };
+    assert.strictEqual(E.mapWindowFor(Object.assign({}, base, { mapStyle: 'standard' })), null);
+    assert.strictEqual(E.mapWindowFor(Object.assign({}, base, { mapStyle: 'wide', bottomStrip: 'layout' })), null, 'not without the strip');
+    assert.strictEqual(E.mapWindowFor(Object.assign({}, base, { mapStyle: 'wide', stockCentre: true })), null, 'not for the stock centre');
+    const W = E.mapWindowFor(Object.assign({}, base, { mapStyle: 'wide' })), O = E.mapWindowFor(Object.assign({}, base, { mapStyle: 'overlay' }));
+    assert(W.w * W.h > 1088 * 480 * 1.2 && O.h > W.h && W.y + W.h <= 646 && O.y >= 128, JSON.stringify([W, O]));
+    const hit = (r, w) => r.x < w.x + w.w && r.x + r.w > w.x && r.y < w.y + w.h && r.y + r.h > w.y;
+    const wide = E.pieces(Object.assign({}, base, { mapStyle: 'wide' }));
+    assert.deepStrictEqual(wide.filter((p) => hit(p, W) && p.kind !== 'band').map((p) => p.key), [], 'wide: nothing over the map');
+    assert(['speedMap', 'kwMap', 'socMap', 'rangeMap', 'useMap'].every((k) => wide.some((p) => p.key === k)), 'the row of readings');
+    const over = E.pieces(Object.assign({}, base, { mapStyle: 'overlay' })).filter((p) => hit(p, O) && p.kind !== 'band');
+    assert(over.length === 6 && over.every((p) => p.z >= 890), 'overlay: the bar and five readings, above the map: ' + over.map((p) => p.key + ':' + p.z));
+    ok++;
+}
 console.log(ok + ' passed');
 process.exit(0);

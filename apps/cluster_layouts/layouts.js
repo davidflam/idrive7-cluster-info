@@ -177,7 +177,7 @@ LAYOUTS.forEach((L) => {
     L.shaped = (o) => {
         // over the car's own strip there is no dark box to work round: the stock centre content shows in the
         // map's window, so the layout takes the same form as with the map (its window left clear for it)
-        const oo = stripOn(o) && o.centre === 'stock' ? Object.assign({}, o, { centre: 'map' }) : o;
+        const oo = stripOn(o) && o.centre === 'stock' ? Object.assign({}, o, { centre: 'map', stockCentre: true }) : o;
         let list = (own(oo) || []).slice();
         if (mCar(o)) list = mMoves(L, o, list);
         if (stripOn(o)) {

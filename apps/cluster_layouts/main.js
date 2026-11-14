@@ -78,6 +78,7 @@ mgu.run({
             bottomStrip: settings.get('bottomStrip') === 'layout' ? 'layout' : 'stock',   // the KOMBI's strip under y 660 (layouts.js)
             boxBezel: settings.get('boxBezel') === 'on',   // (off: the box sits on the plain background)
             vehicle: D.vehicle().vehicle,      // set, or found from the car (Auto)
+            mapStyle: settings.get('mapStyle') || 'wide',   // (Electric's Waze map: standard, wide or overlay)
         });
         /** Live: demo data on, or the car's signals answer (a parked car sends nothing new for minutes, so a
          * provider that is there counts), or a value came in the last STALE_MS. */
@@ -119,7 +120,7 @@ mgu.run({
             if (cluster.status().shown) presence.mark('layouts', { centre: options().centre });
             // the Waze centre: Waze on cluster draws its map over the layout, filling the window (map_window.js): the
             // layout's own (M's and Sport's: where bimmer-lab's put it), else the native map area
-            mapWindow.set(cluster.status().shown && options().centre === 'map' ? (layout.mapWindow || require('./layout_common').MAP) : null);
+            mapWindow.set(cluster.status().shown && options().centre === 'map' ? ((layout.mapWindowFor && layout.mapWindowFor(options())) || layout.mapWindow || require('./layout_common').MAP) : null);
             // the vehicle found (Settings > Vehicle: Auto): the layout redrawn for it once known
             const v = D.vehicle().vehicle;
             if (v !== lastVehicle) { if (lastVehicle) cluster.rebuild(); lastVehicle = v; }
@@ -134,7 +135,7 @@ mgu.run({
         settings.onChange((k) => {
             if (k === 'look' || k === 'background') return cluster.recolour();
             if (k === 'layout') layout = byId(settings.get('layout'));
-            if (['layout', 'centre', 'speedUnit', 'tempUnit', 'torqueUnit', 'redline', 'rpmMax', 'boxClear', 'boxBezel', 'cluster', 'bottomStrip', 'vehicle', 'tankLitres'].indexOf(k) >= 0) cluster.rebuild();
+            if (['layout', 'centre', 'speedUnit', 'tempUnit', 'torqueUnit', 'redline', 'rpmMax', 'boxClear', 'boxBezel', 'cluster', 'bottomStrip', 'vehicle', 'tankLitres', 'mapStyle'].indexOf(k) >= 0) cluster.rebuild();
         });
 
         /* ---------- the car's range and charge signals, from its own catalog ---------- */

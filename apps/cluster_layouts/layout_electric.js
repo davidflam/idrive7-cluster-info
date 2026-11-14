@@ -164,12 +164,47 @@ function newCar(o, arcs, gearC, rpmTxt) {
     cell(3, 'soh', ICON.battery, (d) => pct(d.soh), 'HEALTH'));
 }
 
+/*
+ * ---- the Waze map, large (Settings > Electric: Waze map; with the car's own bottom strip) ----
+ * Waze on cluster draws its map where the layout says (map_window.js), so this layout gives it nearly the whole
+ * panel between the arcs instead of the native map area (1088 x 480):
+ *   wide     1408 x 464, from under a row of readings (speed, power, charge, range, use) down to the car's strip
+ *   overlay  1408 x 512, from the camera's cowl down to the strip, the same readings on a darkened bar over the
+ *            map's bottom edge. Waze draws over the layout, so the bar and its texts ask for a place above it (z);
+ *            whether the renderer gives it is not yet seen on a car: experimental.
+ * Not without the strip (the KOMBI's gear box and warning lights sit in that area), nor for the stock centre.
+ */
+// (x 256-1664: inside the arcs' ends, which curve in to about x 250 at the top and bottom)
+const WIDE = { x: 256, y: 176, w: 1408, h: 464 }, OVER = { x: 256, y: 128, w: 1408, h: 512 };
+const bigMap = (o) => !!o && o.centre === 'map' && C.strip(o) && !o.stockCentre && (o.mapStyle === 'wide' || o.mapStyle === 'overlay');
+const mapWindowFor = (o) => (bigMap(o) ? (o.mapStyle === 'overlay' ? OVER : WIDE) : null);
+function mapForm(o, arcs) {
+    const W = mapWindowFor(o), over = o.mapStyle === 'overlay', Z = over ? { z: 900 } : {};
+    const around = [{ x: 0, y: 0, w: 1920, h: W.y }, { x: 0, y: W.y + W.h, w: 1920, h: 720 - W.y - W.h },
+        { x: 0, y: W.y, w: W.x, h: W.h }, { x: W.x + W.w, y: W.y, w: 1920 - W.x - W.w, h: W.h }];
+    const kwC = (t, d) => ({ color: [kwOf(d) < -0.3 ? t.regen : t.text, 1], glow: [kwOf(d) < -0.3 ? t.regen : t.glow, 0.3] });
+    // five readings in a row: above the map, or on the bar over its bottom edge
+    const y = over ? W.y + W.h - 58 : 132, h = 36, x0 = W.x + 24, step = (W.w - 48) / 5;
+    const col = (i, key, value, colours) => C.text(key, Math.round(x0 + i * step), y, Math.round(step) - 12, h, value, colours, Object.assign({ align: 0.5 }, Z));
+    const row = [
+        col(0, 'speedMap', (d) => C.speedText(o, d) + ' ' + C.speedUnit(o), big),
+        col(1, 'kwMap', C.kwText, kwC),
+        col(2, 'socMap', C.socText, evTxt),
+        col(3, 'rangeMap', rangeText(o), txt),
+        col(4, 'useMap', (d) => (useText(o)(d) === '--' ? '' : useText(o)(d) + ' ' + useLabel(o).replace(/ /g, '')), txt),
+    ];
+    const bar = over ? [{ key: 'mapBar', kind: 'panel', x: W.x + 12, y: y - 10, w: W.w - 24, h: h + 20, z: 890, params: { u_box: [16, 1, 0.7, 0.74] },
+        colors: (t) => ({ top: '#05080c', bottom: '#020304', border: t.cardEdge }) }] : [];
+    return around.map((b, i) => bg('bg' + i, b.x, b.y, b.w, b.h)).concat(arcs, bar, row);
+}
+
 module.exports = {
     id: 'electric',
     title: 'Electric',
     dap: true,          // (its road: the driving assistant's view, dap.js)
     palette: (lookId) => PALETTES[lookId] || PALETTES.comfort,
     gearText: C.gearText,
+    mapWindowFor,       // (its own, larger map window for Waze on cluster: main.js)
 
     pieces(o) {
         const s = C.speedScale(o), r = C.rpmScale(o);
@@ -212,6 +247,7 @@ module.exports = {
         const gearC = (t, d) => ({ color: [C.gearText(d) === 'R' ? '#ff3b30' : t.text, 1], glow: [t.glow, 0.45] });
         const rpmTxt = (d) => 'RANGE ' + C.erangeText(o, d);
         const hotC = (k, lim) => (t, d) => ({ color: [C.isNum(d[k]) && d[k] >= lim ? '#ff3b30' : t.text, 1], glow: [t.glow, 0] });
+        if (bigMap(o)) return mapForm(o, arcs);
         if (o.centre === 'map') {
             // the arcs bulge out to x ~200 / ~1720; the speed and gear sit between them and the map
             const bot = C.MAP.y + C.MAP.h;

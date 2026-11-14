@@ -84,7 +84,7 @@ The tests need Node.js only (no SDK, renderer or car):
 node kit/tools/test_runtime.js
 node kit/tools/test_cluster_info_overlay.js
 node kit/tools/test_cluster_info.js
-for t in engine app centre data finder logs providers shared signals; do node tools/test_$t.js; done
+for t in engine app bev centre data finder logs providers shared signals; do node tools/test_$t.js; done
 ```
 
 After changing anything in `shared/`, run `node tools/sync_shared.js`. `python3 kit/tools/build.py <app id>` builds a

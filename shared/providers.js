@@ -104,6 +104,8 @@ function startProviders(log, opts) {
             erange: first((e) => e.values && e.values.erange && e.values.erange.km),
             frange: first((e) => e.values && e.values.frange && e.values.frange.km),
             battery: first((e) => e.values && e.values.battery && e.values.battery.c),
+            // ('bev': eDrive set to an electric car)
+            vehicle: Object.keys(entries).some((id) => entries[id].vehicle === 'bev') ? 'bev' : undefined,
         }),
         want,
         release,

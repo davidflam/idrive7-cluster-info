@@ -106,7 +106,7 @@ function stripGauges(o, opts) {
     const lab = (t) => ({ color: [t.dim || '#9aa4ae', 1], glow: [t.glow || '#000000', 0] });
     const fuelC = (t) => ({ track: t.track || '#1a1a1a', fill0: t.text || t.tick || '#e8e8e8', fill1: t.text || t.tick || '#e8e8e8', redc: t.red || '#ff3b30', tip: t.text || '#ffffff', tick: t.dim || '#888888', num: t.num || '#888888' });
     const evC = (t) => ({ track: t.track || '#1a1a1a', fill0: t.ev || '#4ab4ff', fill1: t.ev || '#4ab4ff', redc: t.red || '#ff3b30', tip: t.ev || '#4ab4ff', tick: t.dim || '#888888', num: t.num || '#888888' });
-    const out = opts && opts.fuel === false ? [] : [
+    const out = (opts && opts.fuel === false) || o.vehicle === 'bev' ? [] : [
         // each with its level in % beside its name (the strip under it shows the range)
         text('stripFuelLbl', 96, 598, 220, 16, (d) => 'FUEL' + (isNum(d.fuelPct) ? '  ' + Math.round(d.fuelPct) + '%' : ''), lab, { align: 0, tracking: 0.18 }),
         bar('stripFuel', 90, 618, 250, 16, (d) => (isNum(d.fuelPct) ? d.fuelPct / 100 : 0), fuelC, 16),
@@ -125,8 +125,8 @@ const STRIP_DROP = /^(fuel|elec|frange|erange|range2)(Lbl)?$|^erangeL$/;
  * battery's power instead (tachDyn, below). In HYBRID, SPORT, BATTERY CONTROL and the rest they are tachs, with a small
  * power gauge inside. Never with Show: Engine or on a petrol or diesel car.
  */
-const electric = (o, d) => !engineFocus(o) && !!o && o.vehicle !== 'ice' && !!d
-    && (typeof d.driveMode === 'string' && d.driveMode ? /ELECTRIC/.test(d.driveMode) : d.engineOn === false);
+const electric = (o, d) => (!!o && o.vehicle === 'bev') || (!engineFocus(o) && !!o && o.vehicle !== 'ice' && !!d
+    && (typeof d.driveMode === 'string' && d.driveMode ? /ELECTRIC/.test(d.driveMode) : d.engineOn === false));
 /*
  * The power gauges: 0 a quarter along (KW_ZERO), the battery's power drawn above it to the gauge's top, the
  * regeneration below it to its start, each side on its own scale. The ends are eDrive Live's (the battery's
@@ -165,7 +165,7 @@ const tachRange = (o, s) => (d) => (electric(o, d) ? [-kwRange(d).in, kwDialScal
  * both): the battery's temperature (a plug-in hybrid; intake air on a petrol or diesel car) and the gearbox oil's. */
 const stripInfoA = (o) => (o.vehicle === 'ice' || engineFocus(o)
     ? (d) => 'INTAKE ' + tempText(o, d.iat) : (d) => 'BATT ' + tempText(o, d.battTemp));
-const stripInfoB = (o) => (d) => 'GEARBOX ' + tempText(o, d.gearbox);
+const stripInfoB = (o) => (o.vehicle === 'bev' ? (d) => 'MAX ' + tempText(o, isNum(d.battMax) ? d.battMax : d.battTemp) : (d) => 'GEARBOX ' + tempText(o, d.gearbox));
 
 /*
  * A tach's power meter (a plug-in hybrid's eDrive scale): an inner arc across the top of the tach, 0 a quarter
@@ -220,7 +220,7 @@ const erangeText = (o, d) => (isNum(d.erange) && d.erangeEst ? '~' : '') + distT
  * ('ice'). With ICE the layouts trade their eDrive readings for the engine's: battery power -> engine torque, charge -> ignition timing, electric range -> boost, the charge bar
  * -> boost against its target. Each helper takes o and gives the reading for the choice.
  */
-const engineFocus = (o) => !!o && (o.vehicle === 'ice' || o.focus === 'engine');
+const engineFocus = (o) => !!o && o.vehicle !== 'bev' && (o.vehicle === 'ice' || o.focus === 'engine');
 const boostIn = (o, bar0) => (o.speedUnit === 'kmh' ? bar0 : bar0 * 14.5038);
 const boostText = (o, d) => (d.engineOn === false ? 'OFF' : isNum(d.boostActual)
     ? (o.speedUnit === 'kmh' ? boostIn(o, d.boostActual).toFixed(2) + ' bar' : boostIn(o, d.boostActual).toFixed(1) + ' psi') : '--');

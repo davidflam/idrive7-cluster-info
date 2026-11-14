@@ -2,7 +2,7 @@
   "id": "cluster_layouts",
   "title": "Cluster Layouts",
   "description": "Your own layout on the whole instrument cluster (round dials, gear, temperatures), drawn by the cluster itself",
-  "version": "0.28.1",
+  "version": "0.29.0",
   "startType": "autostart",
   "vendor": "custom",
   "loggingId": "OA9L",
@@ -158,6 +158,10 @@
         [
           "ice",
           "Petrol or diesel (boost, timing, torque, fuel rail)"
+        ],
+        [
+          "bev",
+          "Electric car (no engine or fuel: battery power, charge, range, battery temperatures)"
         ]
       ]
     },

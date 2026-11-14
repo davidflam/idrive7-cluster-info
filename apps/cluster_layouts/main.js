@@ -241,7 +241,7 @@ mgu.run({
                     y += 6;
                 });
                 const vh = D.vehicle();
-                cv.text('Vehicle: ' + (vh.vehicle === 'ice' ? 'petrol or diesel' : 'plug-in hybrid') + ' (' + vh.how + (vh.how === 'set' ? '' : ': ' + vh.why) + ')', 48, y + 34, 18, t.text, { font: 'bold', literal: true });
+                cv.text('Vehicle: ' + (vh.vehicle === 'ice' ? 'petrol or diesel' : vh.vehicle === 'bev' ? 'electric car' : 'plug-in hybrid') + ' (' + vh.how + (vh.how === 'set' ? '' : ': ' + vh.why) + ')', 48, y + 34, 18, t.text, { font: 'bold', literal: true });
                 cv.text('Read as: ' + (d.driveMode || '-') + ', steering ' + (isNum(d.steer) ? Math.round(d.steer) + '°' : '--') + ', yaw ' + (isNum(d.yaw) ? d.yaw.toFixed(1) : '--') + ', fuel ' + (isNum(d.frange) ? Math.round(d.frange) : '--') + ', electric ' + (isNum(d.erange) ? Math.round(d.erange) : '--'), 48, y + 6, 18, t.text, { font: 'bold', literal: true });
                 return ui.image('MAIN_GFX', cv);
             }

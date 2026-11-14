@@ -33,6 +33,7 @@ function args(argv) {
         else if (k === 'strip') a.strip = true;
         else if (k === 'dap') a.dap = true;
         else if (k === 'engine') a.engine = true;
+        else if (k === 'bev') a.bev = true;
         else a[k] = isNaN(Number(argv[i + 1])) ? argv[++i] : Number(argv[++i]);
     }
     return a;
@@ -114,7 +115,7 @@ async function render(scene, out, mapWindow, over) {
 
 if (require.main === module) {
     const a = args(process.argv.slice(2));
-    const s = makeScene({ layout: a.layout, look: a.look, black: !!a.black, options: { centre: a.centre, speedUnit: a.kmh ? 'kmh' : 'mph', vehicle: a.engine ? 'ice' : 'phev', cluster: a.mcar ? 'm' : 'standard', bottomStrip: a.strip ? 'stock' : 'layout' },
+    const s = makeScene({ layout: a.layout, look: a.look, black: !!a.black, options: { centre: a.centre, speedUnit: a.kmh ? 'kmh' : 'mph', vehicle: a.engine ? 'ice' : a.bev ? 'bev' : 'phev', cluster: a.mcar ? 'm' : 'standard', bottomStrip: a.strip ? 'stock' : 'layout' },
         data: { speed: a.speed * (a.kmh ? 1 : 1.609344), rpm: a.rpm, gear: a.gear, stage: a.stage, mode: a.mode, driveMode: a.drive, oil: a.oil, coolant: a.coolant, outside: a.outside, soc: a.soc, kw: a.kw, erange: a.erange, frange: a.frange,
             gearbox: a.gearbox, iat: a.iat, battTemp: a.batt, boostActual: a.boost, torque: 312, timing: 14.5, hpfp: 205, boostTarget: 0.9, engineOn: a.rpm > 300, tyres: { p: { FL: 2.48, FR: 2.50, RL: 2.62, RR: 2.60 }, t: { FL: 24, FR: 25, RL: 27, RR: 26 } }, fuelPct: a.fuel, pdDrive: 62, pdClimate: 24, pdSeats: 14, dap: a.dap ? require('../apps/cluster_layouts/dap').DEMO : null } });
     // let the needles ease to their readings

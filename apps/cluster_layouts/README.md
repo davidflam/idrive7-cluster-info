@@ -21,6 +21,16 @@ digits and the road's motion every frame, and the battery's power the moment eDr
 reading at once and this app watches for it, instead of a quarter-second file cycle and a half-second scan). The
 battery's own pace sets the limit: its current answers 10-20 times a second over diagnostics.
 
+### Electric cars
+
+Settings > Vehicle: **Electric car** (found by itself when eDrive is set to an electric car and shares its readings;
+tried on an iX3 G08's data, not yet seen on a cluster). No engine, fuel or gearbox oil, so in every layout: the rev
+counter is the power gauge for good; the fuel level and fuel range are left out; oil, coolant, gearbox oil and intake
+air read the battery's temperature, its warmest and coolest cells' and the outside temperature (BATTERY, CELLS MAX,
+CELLS MIN, OUTSIDE), their engine-scaled gauges left out; the engine speed's number reads the electric range. M, Sport
+and Classic M keep the small fuel and oil gauges drawn into their dials (their needles rest). `node tools/preview.js
+--bev` draws a layout this way.
+
 ### Analog sport
 
 Deep analog dials with satin metal bezels and warm backlit markings, coolant and oil dials set into them, and a

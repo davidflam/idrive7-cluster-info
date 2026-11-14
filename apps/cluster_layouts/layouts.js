@@ -110,9 +110,71 @@ function bottomCut(list) {
     return out;
 }
 
+/*
+ * Settings > Vehicle: Electric car (o.vehicle 'bev'; found by itself when eDrive says so). No engine, no fuel, no
+ * gearbox oil: every layout's rev counter reads the battery's power for good (layout_common.electric), and here,
+ * for all layouts alike, by what each piece reads from the car's data (found by handing its functions a recording
+ * stand-in):
+ *   - fuel level and fuel range: the piece is left out, with its label;
+ *   - oil, coolant, gearbox oil, intake air (text): the battery's temperature, its warmest and its coolest cells'
+ *     and the outside temperature instead, the labels to match; their gauges (bars, needles) are left out, as
+ *     their scales are an engine's;
+ *   - the engine speed (text): the electric range instead, its label RANGE.
+ */
+const BEV_WORDS = [[/\bGEARBOX( OIL)?\b/g, 'CELLS MIN'], [/\bOIL\b/g, 'BATTERY'], [/\bCOOLANT\b/g, 'CELLS MAX'], [/\bINTAKE( AIR)?\b/g, 'OUTSIDE'], [/^TEMP$/, 'BATTERY'],
+    [/\b(ENGINE )?RPM\b/g, 'RANGE'], [/\bBOOST\b(\s+(BAR|PSI))?/g, 'RANGE'], [/\b(ENGINE )?TORQUE\b/g, 'POWER'], [/\bTIMING\b/g, 'CHARGE']];
+const bevWord = (s) => BEV_WORDS.reduce((t, [re, w]) => t.replace(re, w), s);
+const BEV_FUEL = /^(fuelPct|fuelLevel|frange|trange)$/, BEV_TEMPS = /^(oil|coolant|gearbox|iat)$/, BEV_ENGINE = /^(rpm|engineOn|boostActual|boostTarget|torque|timing|hpfp|lpfp|iatRise)$/;
+const FNS = ['text', 'value', 'dyn', 'visible', 'range'];
+function bevReads(p) {
+    const seen = new Set(), d = new Proxy({}, { get: (t, k) => { if (typeof k === 'string') seen.add(k); return undefined; } });
+    FNS.forEach((f) => { if (typeof p[f] === 'function') { try { p[f](d); } catch (e) { /* a reading it needs is not there */ } } });
+    return Array.from(seen);
+}
+const bevData = (d) => {
+    const n = (v, alt) => (typeof v === 'number' && isFinite(v) ? v : alt);
+    return Object.assign({}, d, { oil: d.battTemp, coolant: n(d.battMax, d.battTemp), gearbox: n(d.battMin, d.battTemp), iat: d.outside, engineOn: false, rpm: undefined });
+};
+function bevPieces(list, o) {
+    const gone = [];
+    let out = [];
+    list.forEach((p) => {
+        const reads = bevReads(p), all = (re) => reads.length > 0 && reads.every((k) => re.test(k));
+        // a fuel reading (and nothing else): left out, with its label (below)
+        if (all(BEV_FUEL) || (typeof p.text === 'string' && /FUEL|TANK|^SHIFT$/.test(p.text.trim()))) { gone.push(p.key); return; }
+        // a gauge of an engine's temperature, speed or boost alone: left out (its scale is an engine's); one that
+        // shows more (a dial with a small gauge set in it) stays
+        if (p.kind !== 'text' && (all(BEV_TEMPS) || all(BEV_ENGINE))) { gone.push(p.key); return; }
+        const q = Object.assign({}, p);
+        FNS.forEach((f) => { if (typeof p[f] === 'function' && f !== 'text') q[f] = (d) => p[f](bevData(d || {})); });
+        if (p.kind === 'text') {
+            // (a narrow tile: the range's number alone)
+            const range = (d) => (p.w < 200 ? C0.distText(o, d.erange).replace(/ .*/, '') : C0.erangeText(o, d));
+            if (typeof p.text === 'string') q.text = bevWord(p.text);
+            else if (typeof p.text === 'function') {
+                q.text = (d) => {
+                    const s = p.text(bevData(d || {}));
+                    if (typeof s !== 'string') return s;
+                    // the engine's own words: the electric range in their place
+                    if (/^(ENGINE )?OFF$|^(--|0) RPM$/.test(s.trim())) return (/ENGINE/.test(s) ? 'RANGE ' : '') + range(d || {});
+                    return bevWord(s);
+                };
+            }
+        }
+        out.push(q);
+    });
+    // what belonged to a piece left out, by its key: its label, unit, icon
+    // (not while another piece of that key stays: a bar and its number share one)
+    const kept = new Set(out.map((p) => p.key));
+    out = out.filter((p) => !gone.some((k) => k && !kept.has(k) && p.key.indexOf(k) === 0 && /^(Lbl|Unit|Icon|Num|Cap|Txt)$/.test(p.key.slice(k.length))));
+    // a RANGE label left without its number (it named a rev bar)
+    return out.filter((p) => !(p.kind === 'text' && p.text === 'RANGE' && /Lbl$/.test(p.key) && !out.some((q) => q.key === p.key.replace(/Lbl$/, '') && q.kind === 'text')));
+}
+
 LAYOUTS.forEach((L) => {
     const own = L.pieces;
-    L.pieces = (o) => {
+    L.pieces = (o) => (o && o.vehicle === 'bev' ? bevPieces(L.shaped(o), o) : L.shaped(o));
+    L.shaped = (o) => {
         // over the car's own strip there is no dark box to work round: the stock centre content shows in the
         // map's window, so the layout takes the same form as with the map (its window left clear for it)
         const oo = stripOn(o) && o.centre === 'stock' ? Object.assign({}, o, { centre: 'map' }) : o;

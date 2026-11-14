@@ -47,6 +47,19 @@ cowl down to the strip, the same readings on a darkened bar over the map's botto
 Waze draws over the layout, so the bar asks the renderer for a place above the map, and whether it gets it is not yet
 seen on a car. **Standard** keeps the native area.
 
+Two more choices make the map the cluster: **Map as the cluster** (no dials, the map between two dark
+columns, the speed large with the power on the left, the charge, the energy in the battery and the use on the right;
+nothing drawn over the map) and **Map edge to edge** (the default: 1728 x 512, the speed on a dark card over the map; experimental
+as Largest is). Both work over the car's own bottom strip and in full view. In full view the layout has the bottom
+band too: the gear selector (P R N D, the engaged one lit) and the speed on the left of the stock warning lights, the
+range and the charge on the right, so they show whatever the map covers; above the map, beside the camera's cowl,
+stand the time and the outside temperature, the battery's temperature and its energy. In full view the cluster's own
+two dark boxes sit over the right of an edge-to-edge map.
+
+![Electric: the map edge to edge, full view](../../docs/electric_map_full.png)
+
+![Electric: the map as the cluster, full view](../../docs/electric_map_clean.png)
+
 ![Electric with the Waze map, large](../../docs/electric_map.png)
 
 ![Electric](../../docs/electric.png)

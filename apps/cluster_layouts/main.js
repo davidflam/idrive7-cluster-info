@@ -78,7 +78,7 @@ mgu.run({
             bottomStrip: settings.get('bottomStrip') === 'layout' ? 'layout' : 'stock',   // the KOMBI's strip under y 660 (layouts.js)
             boxBezel: settings.get('boxBezel') === 'on',   // (off: the box sits on the plain background)
             vehicle: D.vehicle().vehicle,      // set, or found from the car (Auto)
-            mapStyle: settings.get('mapStyle') || 'wide',   // (Electric's Waze map: standard, wide or overlay)
+            mapStyle: settings.get('mapStyle') || 'full',   // (Electric's Waze map: standard, wide or overlay)
         });
         /** Live: demo data on, or the car's signals answer (a parked car sends nothing new for minutes, so a
          * provider that is there counts), or a value came in the last STALE_MS. */

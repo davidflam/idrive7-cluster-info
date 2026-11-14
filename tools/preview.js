@@ -139,6 +139,12 @@ if (require.main === module) {
     s.stop();
     scene.time = a.time || 0;
     const LY = require('../apps/cluster_layouts/layouts').byId(a.layout);
+    // a layout's own window: Waze on cluster draws its map there on the panel at z 900, over the layout's layers below
+    // that and under those above it - so those below, inside the window, don't show (Electric's black underlay)
+    if (a.centre === 'map' && LY.mapWindow) {
+        const W = LY.mapWindow;
+        scene.quads = scene.quads.filter((q) => !(q.z < 900 && q.x >= W.x && q.y >= W.y && q.x + q.w <= W.x + W.w && q.y + q.h <= W.y + W.h));
+    }
     render(scene, a.out, a.centre === 'map' && (LY.mapWindow || true), a.mcar ? require('../apps/cluster_layouts/layout_common').M_BOXES : []).then((errors) => {
         if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
         console.log('wrote ' + path.resolve(a.out) + ' (' + scene.quads.length + ' layers)');

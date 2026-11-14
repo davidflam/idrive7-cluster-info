@@ -75,7 +75,7 @@ function makeScene(opts) {
             const order = { ambient: 0, content: 1, overlay: 2, alert: 3 };
             const quads = ls.filter((l) => l.kind === 'effect' && l.opts.visible !== false)
                 .sort((a, b) => (order[a.opts.klass] - order[b.opts.klass]) || ((a.opts.z || 0) - (b.opts.z || 0)) || (a.ref - b.ref))
-                .map((l) => ({ ref: l.ref, x: l.opts.x, y: l.opts.y, w: l.opts.w, h: l.opts.h, fs: l.opts.fs, uniforms: l.uniforms, binds: l.binds }));
+                .map((l) => ({ ref: l.ref, x: l.opts.x, y: l.opts.y, w: l.opts.w, h: l.opts.h, z: l.opts.z || 0, fs: l.opts.fs, uniforms: l.uniforms, binds: l.binds }));
             return { w: 1920, h: 720, quads, assets };
         },
         stop() { engine.stop(); },

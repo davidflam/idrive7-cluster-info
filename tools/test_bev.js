@@ -44,20 +44,25 @@ LAYOUTS.forEach((L) => { const s = makeScene({ layout: L.id, options: { vehicle:
     const E = LAYOUTS.find((l) => l.id === 'electric'), W = E.mapWindow;
     const base = { speedUnit: 'kmh', tempUnit: 'c', centre: 'map', vehicle: 'bev', redline: 7000, rpmMax: 8000 };
     const hit = (r, w) => r.x < w.x + w.w && r.x + r.w > w.x && r.y < w.y + w.h && r.y + r.h > w.y;
-    assert(W && W.w * W.h > 1088 * 480 * 1.5 && W.y >= 128 && W.y + W.h <= 646, JSON.stringify(W));
+    // (Waze stretches its 1088 x 480 map to the window: the window keeps that shape, and is larger)
+    assert(W && Math.abs(W.w / W.h - 1088 / 480) < 0.02 && W.w * W.h > 1088 * 480 && W.y >= 128 && W.y + W.h <= 646, JSON.stringify(W));
     const d2 = { speed: 84, kw: -22, soc: 85, erange: 490, battTemp: 24, outside: 27, use: 18.4, energy: 61.9, stage: 'D' };
     ['layout', 'stock'].forEach((bottomStrip) => {
         const list = E.pieces(Object.assign({}, base, { bottomStrip })), where = 'electric map / ' + bottomStrip;
-        assert(!list.some((p) => p.kind === 'band'), where + ': no dials');
-        // what is over the map asks for a place above it
-        assert(list.filter((p) => hit(p, W)).every((p) => p.z >= 890), where + ': over the map only above it');
+        assert(!list.some((p) => p.kind === 'band' && p.key !== 'socRBar'), where + ': no dials (the charge bar alone)');
+        // what is over the map is above Waze's map (its z 900), but the black underlay, which is under it
+        assert(list.filter((p) => hit(p, W) && p.key !== 'bgMapUnder').every((p) => p.z > 900), where + ': over the map only above it');
+        const under = list.find((p) => p.key === 'bgMapUnder');
+        assert(under && under.x === W.x && under.w === W.w && !(under.z > 0), where + ': a black underlay under the map');
+        // the right column clear of the KOMBI's boxes (full view)
+        assert(!list.some((p) => /R(Lbl|Bar)?$/.test(p.key) && /^(energy|soc)/.test(p.key) && (hit(p, C.GEARBOX_HOLE) || hit(p, C.EDRIVE_HOLE))), where + ': the right column round the boxes');
         const say = (k) => { const p = list.find((q) => q.key === k); return p ? (typeof p.text === 'function' ? p.text(d2) : p.text) : undefined; };
         assert.strictEqual(say('speedMap'), '84', where);
         assert.strictEqual(say('useCard'), '18.4 kWh/100km', where + ': the use on the card');
         assert.strictEqual(say('useTop'), '18.4 kWh/100km', where + ': and above the map');
         assert.strictEqual(say('battT'), 'BATT 24°', where + ': Celsius');
-        assert.strictEqual(say('energyTop'), '61.9 kWh', where);
-        if (bottomStrip === 'stock') { assert.strictEqual(say('rangeMap'), '490 km', where); return; }
+        assert.deepStrictEqual([say('energyR'), say('socR')], ['61.9', '85%'], where);
+        if (bottomStrip === 'stock') return;
         // full view: the selector, the speed, the range and the charge in the band beside the warning lights; the
         // time, the date and the outside temperature above the map
         assert.strictEqual(say('outside'), '27°C', where);

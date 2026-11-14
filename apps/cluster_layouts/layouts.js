@@ -3,7 +3,7 @@
  * layouts.js - the layouts this app offers, by id. A layout is one file, layout_<id>.js, next to this one
  * (the build ships only top-level .js files); list it here and in app.json's "layout" setting (README.md).
  */
-const LAYOUTS = [require('./layout_analog_sport'), require('./layout_digital_round'), require('./layout_modern_wide'), require('./layout_digital_dash'), require('./layout_freedom'), require('./layout_retro'), require('./layout_track'), require('./layout_pulse'), require('./layout_gt3'), require('./layout_m'), require('./layout_sport'), require('./layout_classic')];
+const LAYOUTS = [require('./layout_analog_sport'), require('./layout_digital_round'), require('./layout_modern_wide'), require('./layout_digital_dash'), require('./layout_freedom'), require('./layout_retro'), require('./layout_track'), require('./layout_pulse'), require('./layout_gt3'), require('./layout_m'), require('./layout_sport'), require('./layout_classic'), require('./layout_electric')];
 /* with Settings > Frame behind the gear box on: the bezel behind the KOMBI's gear bracket (layout_common.boxBezel),
  * just above the backgrounds. Off (the default, from the car: the frame read as a stray grey box) the box sits on
  * the layout's own black background and its black window disappears into it */
@@ -146,14 +146,14 @@ function bevPieces(list, o) {
         // shows more (a dial with a small gauge set in it) stays
         if (p.kind !== 'text' && (all(BEV_TEMPS) || all(BEV_ENGINE))) { gone.push(p.key); return; }
         const q = Object.assign({}, p);
-        FNS.forEach((f) => { if (typeof p[f] === 'function' && f !== 'text') q[f] = (d) => p[f](bevData(d || {})); });
+        FNS.forEach((f) => { if (typeof p[f] === 'function' && f !== 'text') q[f] = (d, ...more) => p[f](bevData(d || {}), ...more); });
         if (p.kind === 'text') {
             // (a narrow tile: the range's number alone)
             const range = (d) => (p.w < 200 ? C0.distText(o, d.erange).replace(/ .*/, '') : C0.erangeText(o, d));
             if (typeof p.text === 'string') q.text = bevWord(p.text);
             else if (typeof p.text === 'function') {
-                q.text = (d) => {
-                    const s = p.text(bevData(d || {}));
+                q.text = (d, ...more) => {     // (a text may take the colours too: the drive mode's)
+                    const s = p.text(bevData(d || {}), ...more);
                     if (typeof s !== 'string') return s;
                     // the engine's own words: the electric range in their place
                     if (/^(ENGINE )?OFF$|^(--|0) RPM$/.test(s.trim())) return (/ENGINE/.test(s) ? 'RANGE ' : '') + range(d || {});
@@ -213,5 +213,7 @@ LAYOUTS.forEach((L) => {
         return list;
     };
 });
+// Electric is on Modern wide's frame, its readings in the same places under the same keys
+M_MOVES.electric = M_MOVES.modern_wide;
 const byId = (id) => LAYOUTS.find((l) => l.id === id) || LAYOUTS[0];
 module.exports = { LAYOUTS, byId, M_MOVES, M_ON_DIAL, CUT_Y, BG_Y, BG_NOTCH, BG_NOTCH_Y, bottomCut };

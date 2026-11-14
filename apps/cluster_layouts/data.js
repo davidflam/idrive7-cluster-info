@@ -467,6 +467,7 @@ function startData(ctx, opts) {
             if (d.demo) Object.assign(o, demo(d));
             if (isNum(o.iat) && isNum(o.outside)) o.iatRise = o.iat - o.outside;
             if (isNum(o.battTemp) === false && p.battery !== undefined) o.battTemp = p.battery;
+            if (!d.demo) ['use', 'soh', 'energy'].forEach((k) => { if (isNum(p[k])) o[k] = p[k]; });
             o.engineOn = isNum(o.rpm) ? o.rpm > 300 : undefined;
             // an electric car: no engine, whatever its engine speed signal carries (0, or the motor's speed)
             if (bev() && !d.demo) { o.rpm = undefined; o.engineOn = false; }
@@ -504,7 +505,7 @@ function demo(d) {
     return {
         outside: 9, gearbox: 72 + 4 * Math.sin(t / 50), iat: 34 + 6 * Math.sin(t / 20), hpfp: 50 + rpm / 40, lpfp: 5.2 + 0.2 * Math.sin(t),
         timing: 18 - rpm / 800, boostTarget: Math.max(0, (rpm - 1500) / 4000), boostActual: Math.max(0, (rpm - 1600) / 4100),
-        battTemp: 27, battMin: 25, battMax: 29, soc: 64, kw: -12 + 25 * Math.sin(t / 7), pdDrive: 60, pdClimate: 25, pdSeats: 15,
+        battTemp: 27, battMin: 25, battMax: 29, use: 18.4, soh: 98, energy: 46.7, soc: 64, kw: -12 + 25 * Math.sin(t / 7), pdDrive: 60, pdClimate: 25, pdSeats: 15,
         erange: 29, frange: 520, fuelLevel: 38,
         tyres: { p: { FL: 2.48, FR: 2.50, RL: 2.62, RR: 2.60 }, t: { FL: 24, FR: 25, RL: 27, RR: 26 } },
     };

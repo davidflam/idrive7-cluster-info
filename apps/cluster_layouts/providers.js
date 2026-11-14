@@ -104,6 +104,10 @@ function startProviders(log, opts) {
             erange: first((e) => e.values && e.values.erange && e.values.erange.km),
             frange: first((e) => e.values && e.values.frange && e.values.frange.km),
             battery: first((e) => e.values && e.values.battery && e.values.battery.c),
+            // eDrive's, for an electric car's layout: use per 100 km (this drive), the battery's health, the energy in it
+            use: first((e) => e.values && e.values.use && e.values.use.kwh100),
+            soh: first((e) => e.values && e.values.soh && e.values.soh.pct),
+            energy: first((e) => e.values && e.values.energy && e.values.energy.kwh),
             // ('bev': eDrive set to an electric car)
             vehicle: Object.keys(entries).some((id) => entries[id].vehicle === 'bev') ? 'bev' : undefined,
         }),

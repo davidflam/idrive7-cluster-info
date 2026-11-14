@@ -3,8 +3,8 @@
 *Part of [iDrive 7 cluster apps](../../README.md), with Cluster Info and [Cluster Centre](../cluster_centre/README.md).*
 
 Custom layouts for the whole instrument cluster of a BMW with iDrive 7 (MGU), **drawn by the cluster
-itself**. Eight original layouts (Analog sport, Digital round, Modern wide, Digital dash, Freedom, Retro, Track and
-Pulse), Classic M, and GT3, M and Sport (after bimmer-lab's), each in comfort, sport and efficient colours (following the selector's S / M
+itself**. Nine original layouts (Analog sport, Digital round, Modern wide, Digital dash, Freedom, Retro, Track,
+Pulse and Electric), Classic M, and GT3, M and Sport (after bimmer-lab's), each in comfort, sport and efficient colours (following the selector's S / M
 programme, or chosen), each with three centres: the **readings**, **Waze** or the **stock** centre content.
 
 With the car's own bottom strip (the default) the strip shows the gear, the drive mode, the ranges, the time and the
@@ -30,6 +30,21 @@ air read the battery's temperature, its warmest and coolest cells' and the outsi
 CELLS MIN, OUTSIDE), their engine-scaled gauges left out; the engine speed's number reads the electric range. M, Sport
 and Classic M keep the small fuel and oil gauges drawn into their dials (their needles rest). `node tools/preview.js
 --bev` draws a layout this way.
+
+### Electric
+
+A layout for an electric car, made for an iX3 G08, on Modern wide's frame: road speed up the left arc and the battery's
+power up the right one for good (0 a quarter up, regeneration below it in green), the speed large in the middle over the
+road ahead, a card with the power, its bar and trend, and a card with the charge, the use per 100 km (miles per kWh
+with mph), the battery's temperature and its health; the range and the energy in the battery in the top corners. No
+engine speed, fuel, oil or coolant anywhere. The use, health and energy are eDrive's (2.10.16 or later shares them);
+without it they read --. Drawn in the preview only so far, not yet seen on a cluster.
+
+![Electric](../../docs/electric.png)
+
+| Efficient colours, regenerating |
+|---|
+| ![](../../docs/electric_efficient.png) |
 
 ### Analog sport
 

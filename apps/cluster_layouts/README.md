@@ -40,27 +40,17 @@ with mph), the battery's temperature and its health; the range and the energy in
 engine speed, fuel, oil or coolant anywhere. The use, health and energy are eDrive's (2.10.16 or later shares them);
 without it they read --. Drawn in the preview only so far, not yet seen on a cluster.
 
-With the Waze map in the centre (and the car's own bottom strip), Settings > *Electric layout: the Waze map* gives
-Waze on cluster a larger window than the native map area (1088 x 480): **Large** (1408 x 464 between the arcs, the
-speed, power, charge, range and use in a row above it; the default) or **Largest** (1408 x 512, from the camera's
-cowl down to the strip, the same readings on a darkened bar over the map's bottom edge). Largest is experimental:
-Waze draws over the layout, so the bar asks the renderer for a place above the map, and whether it gets it is not yet
-seen on a car. **Standard** keeps the native area.
-
-Two more choices make the map the cluster: **Map as the cluster** (no dials, the map between two dark
-columns, the speed large with the power on the left, the charge, the energy in the battery and the use on the right;
-nothing drawn over the map) and **Map edge to edge** (the default: 1728 x 512, the speed on a dark card over the map; experimental
-as Largest is). Both work over the car's own bottom strip and in full view. In full view the layout has the bottom
-band too: the gear selector (P R N D, the engaged one lit) and the speed on the left of the stock warning lights, the
-range and the charge on the right, so they show whatever the map covers; above the map, beside the camera's cowl,
-stand the time and the outside temperature, the battery's temperature and its energy. In full view the cluster's own
-two dark boxes sit over the right of an edge-to-edge map.
+With the Waze map in the centre it is another cluster: no dials, the map edge to edge. Waze on cluster gets a window
+of 1728 x 512 instead of the native map area (1088 x 480). On a dark card over the map's left side stand the speed,
+large, the battery's power and the use per 100 km; above the map, beside the camera's cowl, the time (24-hour with
+Settings > Clock), the date as day/month/year and the outside temperature on the left, the battery's temperature, its
+energy and the use on the right. In full view (Settings > Bottom strip) the bottom band has the gear selector (P R N
+D, the engaged one lit) and the speed left of the stock warning lights, the range and the charge right of them; over
+the car's own strip a chip over the map has the range and the charge. Waze draws over the layout, so the card asks the
+renderer for a place above the map: not yet seen on a car, which is why the speed is in the bottom band too. In full
+view the cluster's own two dark boxes sit over the right of the map.
 
 ![Electric: the map edge to edge, full view](../../docs/electric_map_full.png)
-
-![Electric: the map as the cluster, full view](../../docs/electric_map_clean.png)
-
-![Electric with the Waze map, large](../../docs/electric_map.png)
 
 ![Electric](../../docs/electric.png)
 

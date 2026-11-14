@@ -39,45 +39,39 @@ LAYOUTS.forEach((L) => ['phev', 'ice'].forEach((vehicle) => {
 }));
 // the engine draws every layout as an electric car's (the scene the previews use)
 LAYOUTS.forEach((L) => { const s = makeScene({ layout: L.id, options: { vehicle: 'bev', bottomStrip: 'stock', speedUnit: 'kmh' }, data: d }); assert(s.engine._pieces().length > 5, L.id); s.stop(); ok++; });
-// Electric's large Waze map: only with the car's strip and the Waze centre; nothing but the arcs' rectangles and
-// the backgrounds touch the window in 'wide'; 'overlay' puts its bar and readings over it, above the map (z)
+// Electric with the Waze map: the map as the cluster, edge to edge, in full view and over the car's strip
 {
-    const E = LAYOUTS.find((l) => l.id === 'electric'), L2 = (o) => E.pieces(o), base = { speedUnit: 'kmh', tempUnit: 'c', centre: 'map', vehicle: 'bev', bottomStrip: 'stock', redline: 7000, rpmMax: 8000 };
-    assert.strictEqual(E.mapWindowFor(Object.assign({}, base, { mapStyle: 'standard' })), null);
-    assert.strictEqual(E.mapWindowFor(Object.assign({}, base, { mapStyle: 'wide', bottomStrip: 'layout' })), null, 'not without the strip');
-    assert.strictEqual(E.mapWindowFor(Object.assign({}, base, { mapStyle: 'wide', stockCentre: true })), null, 'not for the stock centre');
-    const W = E.mapWindowFor(Object.assign({}, base, { mapStyle: 'wide' })), O = E.mapWindowFor(Object.assign({}, base, { mapStyle: 'overlay' }));
-    assert(W.w * W.h > 1088 * 480 * 1.2 && O.h > W.h && W.y + W.h <= 646 && O.y >= 128, JSON.stringify([W, O]));
+    const E = LAYOUTS.find((l) => l.id === 'electric'), W = E.mapWindow;
+    const base = { speedUnit: 'kmh', tempUnit: 'c', centre: 'map', vehicle: 'bev', redline: 7000, rpmMax: 8000 };
     const hit = (r, w) => r.x < w.x + w.w && r.x + r.w > w.x && r.y < w.y + w.h && r.y + r.h > w.y;
-    const wide = E.pieces(Object.assign({}, base, { mapStyle: 'wide' }));
-    assert.deepStrictEqual(wide.filter((p) => hit(p, W) && p.kind !== 'band').map((p) => p.key), [], 'wide: nothing over the map');
-    assert(['speedMap', 'kwMap', 'socMap', 'rangeMap', 'useMap'].every((k) => wide.some((p) => p.key === k)), 'the row of readings');
-    const over = E.pieces(Object.assign({}, base, { mapStyle: 'overlay' })).filter((p) => hit(p, O) && p.kind !== 'band');
-    assert(over.length === 6 && over.every((p) => p.z >= 890), 'overlay: the bar and five readings, above the map: ' + over.map((p) => p.key + ':' + p.z));
-    // the map as the cluster: 'clean' draws nothing over its window and has no arcs; 'full' is wider still, its
-    // cards and texts above the map
-    const Cw = E.mapWindowFor(Object.assign({}, base, { mapStyle: 'clean' })), Fw = E.mapWindowFor(Object.assign({}, base, { mapStyle: 'full' }));
-    const clean = E.pieces(Object.assign({}, base, { mapStyle: 'clean' })), full = E.pieces(Object.assign({}, base, { mapStyle: 'full' }));
-    assert.deepStrictEqual(clean.filter((p) => hit(p, Cw)).map((p) => p.key), [], 'clean: nothing over the map');
-    assert(!clean.some((p) => p.kind === 'band') && clean.some((p) => p.key === 'speedMap') && clean.some((p) => p.key === 'socMap'), 'clean: no arcs, the speed and the charge');
-    assert(Fw.w > Cw.w && Cw.w * Cw.h > 1088 * 480 * 1.2, JSON.stringify([Cw, Fw]));
-    assert(full.filter((p) => hit(p, Fw)).every((p) => p.z >= 890) && full.some((p) => p.key === 'rangeMap'), 'full: what is over the map is above it');
-    // full view (no strip of the car's): the selector, range and charge in the bottom band beside the warning lights,
-    // the time and temperatures above the map; nothing of 'clean' under the KOMBI's boxes or over its map
-    ['clean', 'full'].forEach((mapStyle) => {
-        const o = Object.assign({}, base, { mapStyle, bottomStrip: 'layout' }), w = E.mapWindowFor(o), list = L2(o);
-        assert(w && w.y + w.h <= 652, mapStyle + ': a window in full view');
-        ['selP', 'selR', 'selN', 'selD', 'rangeBand', 'socBand', 'clock', 'outside', 'battT'].forEach((k) => assert(list.some((p) => p.key === k), mapStyle + ': ' + k));
+    assert(W && W.w * W.h > 1088 * 480 * 1.5 && W.y >= 128 && W.y + W.h <= 646, JSON.stringify(W));
+    const d2 = { speed: 84, kw: -22, soc: 85, erange: 490, battTemp: 24, outside: 27, use: 18.4, energy: 61.9, stage: 'D' };
+    ['layout', 'stock'].forEach((bottomStrip) => {
+        const list = E.pieces(Object.assign({}, base, { bottomStrip })), where = 'electric map / ' + bottomStrip;
+        assert(!list.some((p) => p.kind === 'band'), where + ': no dials');
+        // what is over the map asks for a place above it
+        assert(list.filter((p) => hit(p, W)).every((p) => p.z >= 890), where + ': over the map only above it');
+        const say = (k) => { const p = list.find((q) => q.key === k); return p ? (typeof p.text === 'function' ? p.text(d2) : p.text) : undefined; };
+        assert.strictEqual(say('speedMap'), '84', where);
+        assert.strictEqual(say('useCard'), '18.4 kWh/100km', where + ': the use on the card');
+        assert.strictEqual(say('useTop'), '18.4 kWh/100km', where + ': and above the map');
+        assert.strictEqual(say('battT'), 'BATT 24°', where + ': Celsius');
+        assert.strictEqual(say('energyTop'), '61.9 kWh', where);
+        if (bottomStrip === 'stock') { assert.strictEqual(say('rangeMap'), '490 km', where); return; }
+        // full view: the selector, the speed, the range and the charge in the band beside the warning lights; the
+        // time, the date and the outside temperature above the map
+        assert.strictEqual(say('outside'), '27°C', where);
+        assert(/^\d\d\/\d\d\/\d{4}$/.test(say('date')), where + ': the date as day/month/year: ' + say('date'));
+        assert.deepStrictEqual([say('speedBand'), say('rangeBand'), say('socBand')], ['84 km/h', '490 km', '85%'], where);
         const band = list.filter((p) => /^sel|Band$/.test(p.key));
-        assert(band.every((p) => p.y >= w.y + w.h && !hit(p, C.TELLTALES)), mapStyle + ': the band clear of the map and the warning lights');
+        assert(band.length === 7 && band.every((p) => p.y >= W.y + W.h && !hit(p, C.TELLTALES)), where + ': the band clear of the map and the warning lights');
         const lit = (stage) => list.filter((p) => /^sel[PRND]$/.test(p.key) && p.colors({ text: '#ffffff', tick: '#333333', red: '#ff0000', glow: '#000000' }, { stage }).color[0] !== '#333333').map((p) => p.key);
-        assert.deepStrictEqual([lit('D'), lit('R'), lit('P')], [['selD'], ['selR'], ['selP']], mapStyle + ': the engaged one lit');
-        if (mapStyle === 'clean') {
-            assert.deepStrictEqual(list.filter((p) => hit(p, w)).map((p) => p.key), [], 'clean, full view: nothing over the map');
-            assert(!list.some((p) => p.kind === 'text' && (hit(p, C.GEARBOX_HOLE) || hit(p, C.EDRIVE_HOLE))), 'clean, full view: no reading under the KOMBI\'s boxes');
-            assert(w.x + w.w <= C.GEARBOX_HOLE.x, 'clean, full view: the map ends left of the gear box');
-        } else assert(list.some((p) => p.key === 'speedBand'), 'full: the speed in the band too');
+        assert.deepStrictEqual([lit('D'), lit('R'), lit('P')], [['selD'], ['selR'], ['selP']], where + ': the engaged one lit');
     });
+    // the clock: 24-hour, Brasília's time, the date as written in Brazil
+    const ck = require(path.join(APP, 'clock'));
+    ck.setZone('utc-3'); ck.setTwelve(false);
+    assert.deepStrictEqual([ck.hm(Date.UTC(2026, 10, 14, 18, 5)), ck.dmy(Date.UTC(2026, 10, 14, 18, 5)), ck.dmy(Date.UTC(2026, 10, 15, 1, 30))], ['15:05', '14/11/2026', '14/11/2026']);
     ok++;
 }
 console.log(ok + ' passed');

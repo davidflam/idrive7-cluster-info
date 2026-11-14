@@ -5,8 +5,9 @@
  * quarter up, regeneration below it in green, each side to the battery's limit). The speed stands large in the
  * middle over the road ahead; a glass card on the left has the power, a centre-zero bar and its trend, one on the
  * right the charge, the use per 100 km (this drive's, as eDrive measures it), the battery's temperature and its
- * health; the range and the energy in the battery stand in the top corners. No engine speed, fuel, oil or coolant
- * anywhere. Use, health and energy are eDrive's (what it shares for the cluster apps); without it they read --.
+ * health; the range and the energy in the battery stand in the top corners. With the Waze map in the centre it is
+ * another cluster: no dials, the map edge to edge, the speed on a dark card (mapForm, below). No engine speed, fuel,
+ * oil or coolant anywhere. Use, health and energy are eDrive's (what it shares for the cluster apps); without it they read --.
  */
 const C = require('./layout_common');
 const carSprite = require('./car_sprite');
@@ -165,109 +166,59 @@ function newCar(o, arcs, gearC, rpmTxt) {
 }
 
 /*
- * ---- the Waze map, large (Settings > Electric: Waze map; with the car's own bottom strip) ----
- * Waze on cluster draws its map where the layout says (map_window.js), so this layout gives it nearly the whole
- * panel between the arcs instead of the native map area (1088 x 480):
- *   wide     1408 x 464, from under a row of readings (speed, power, charge, range, use) down to the car's strip
- *   overlay  1408 x 512, from the camera's cowl down to the strip, the same readings on a darkened bar over the
- *            map's bottom edge. Waze draws over the layout, so the bar and its texts ask for a place above it (z);
- *            whether the renderer gives it is not yet seen on a car: experimental.
- * Not without the strip (the KOMBI's gear box and warning lights sit in that area), nor for the stock centre.
+ * ---- the Waze map in the centre: the map as the whole cluster ----
+ * No dials. Waze on cluster draws its map where the layout says (map_window.js): here 1728 x 512, edge to edge,
+ * instead of the native map area (1088 x 480). The speed, the power and the use per 100 km stand on a dark card
+ * over the map's left side: Waze draws over the layout, so the card and its texts ask for a place above the map
+ * (z); whether the renderer gives it is not yet seen on a car, so the speed is in the bottom band too.
+ * Above the map, beside the camera's cowl: the time, the date and the outside temperature on the left, the
+ * battery's temperature, its energy and the use on the right. Full view (Settings > Bottom strip): the bottom band
+ * is the layout's, left and right of the stock warning lights (layout_common.TELLTALES): the gear selector P R N D
+ * and the speed, the range and the charge. Over the car's own strip (which shows gear, range and time itself) a
+ * chip over the map's bottom right has the range and the charge. In full view the KOMBI's own dark boxes
+ * (layout_common.GEARBOX_HOLE, EDRIVE_HOLE) sit over the map's right side.
  */
-// (x 256-1664: inside the arcs' ends, which curve in to about x 250 at the top and bottom)
-const WIDE = { x: 256, y: 176, w: 1408, h: 464 }, OVER = { x: 256, y: 128, w: 1408, h: 512 };
-/*
- * ---- the map as the whole cluster: no dials, the map, the speed on a dark card ----
- *   clean    the map between two dark columns: the speed, large, and the power on the left, the charge, the energy in
- *            the battery and the use on the right. Nothing is drawn over the map.
- *   full     the map 1728 x 512, edge to edge; the speed card and a range-and-charge chip sit over it (above the
- *            map by z, as 'overlay': experimental, not yet seen on a car)
- * With the car's own bottom strip or full view (Settings > Bottom strip). Full view: the layout has the bottom band
- * too, left and right of the stock warning lights (layout_common.TELLTALES): the gear selector P R N D and the speed
- * on the left, the range and the charge on the right - there whatever the map covers. Above the map, left and right
- * of the camera's cowl: the time and the outside temperature, the battery's temperature and its energy. In full view
- * the KOMBI's own dark boxes (layout_common.GEARBOX_HOLE, EDRIVE_HOLE) sit over the map's right side: 'clean' ends
- * its map left of them and puts its right column round them.
- */
-const FULL = { x: 96, y: 128, w: 1728, h: 512 };
-const cleanWin = (o) => (C.strip(o) ? { x: 440, y: 128, w: 1264, h: 512 } : { x: 440, y: 128, w: 956, h: 512 });
-const isClean = (o) => o.mapStyle === 'clean' || o.mapStyle === 'full';
-// (the forms with the arcs only over the car's strip: full view, the KOMBI's boxes sit where their readings are)
-const bigMap = (o) => !!o && o.centre === 'map' && !o.stockCentre && (isClean(o) || (C.strip(o) && (o.mapStyle === 'wide' || o.mapStyle === 'overlay')));
-const mapWindowFor = (o) => (!bigMap(o) ? null : o.mapStyle === 'full' ? FULL : o.mapStyle === 'clean' ? cleanWin(o) : o.mapStyle === 'overlay' ? OVER : WIDE);
-function cleanForm(o) {
-    const W = mapWindowFor(o), full = o.mapStyle === 'full', strip = C.strip(o), Z = full ? { z: 900 } : {};
+const MAPWIN = { x: 96, y: 128, w: 1728, h: 512 };
+const useFull = (o) => (d) => (useText(o)(d) === '--' ? '' : useText(o)(d) + ' ' + useLabel(o).replace(/ /g, ''));
+function mapForm(o) {
+    const W = MAPWIN, strip = C.strip(o), Z = { z: 900 };
     const around = [{ x: 0, y: 0, w: 1920, h: W.y }, { x: 0, y: W.y + W.h, w: 1920, h: 720 - W.y - W.h },
         { x: 0, y: W.y, w: W.x, h: W.h }, { x: W.x + W.w, y: W.y, w: 1920 - W.x - W.w, h: W.h }];
     const kwC = (t, d) => ({ color: [kwOf(d) < -0.3 ? t.regen : t.dim, 1], glow: [kwOf(d) < -0.3 ? t.regen : t.glow, 0.2] });
-    const dark = (key, x, y, w, h, a) => ({ key, kind: 'panel', x, y, w, h, z: full ? 890 : undefined, params: { u_box: [26, full ? 1 : 0, 0.7, a] },
+    const dark = (key, x, y, w, h) => ({ key, kind: 'panel', x, y, w, h, z: 890, params: { u_box: [26, 1, 0.7, 0.8] },
         colors: (t) => ({ top: '#06090d', bottom: '#020304', border: t.cardEdge }) });
     const T = (key, x, y, w, h, value, colours, extra) => C.text(key, x, y, w, h, value, colours, Object.assign({}, extra, Z));
-    // the speed card: in the left column, or over the map's left side
-    const cx = full ? 150 : 118, cw = 300;
+    const cx = 150, cw = 300;
     let list = around.map((b, i) => bg('bg' + i, b.x, b.y, b.w, b.h)).concat([
-        dark('speedCard', cx, 230, cw, 300, full ? 0.8 : 0),
-        T('speedMap', cx, 256, cw, 150, (d) => C.speedText(o, d), big),
-        T('speedMapUnit', cx, 408, cw, 24, C.speedUnit(o), lbl, { tracking: 0.2 }),
-        T('kwMap', cx, 452, cw, 44, C.kwText, kwC),
-        // above the map, beside the cowl: the time and outside temperature, the battery's temperature and energy
-        C.text('clock', 330, 86, 150, 34, C.clock, txt, { align: 0 }),
-        C.text('outside', 490, 86, 220, 34, (d) => C.outsideText(o, d.outside), lbl, { align: 0 }),
-        C.text('battT', 1210, 86, 200, 34, (d) => 'BATT ' + C.tempText(o, d.battTemp), lbl, { align: 1 }),
-        C.text('energyTop', 1420, 86, 170, 34, energyText, txt, { align: 1 }),
+        // the card over the map: the speed, the power, the use
+        dark('speedCard', cx, 222, cw, 320),
+        T('speedMap', cx, 244, cw, 150, (d) => C.speedText(o, d), big),
+        T('speedMapUnit', cx, 396, cw, 24, C.speedUnit(o), lbl, { tracking: 0.2 }),
+        T('kwMap', cx, 436, cw, 44, C.kwText, kwC),
+        T('useCard', cx, 494, cw, 26, useFull(o), lbl),
+        // above the map, beside the cowl
+        C.text('clock', 330, 88, 100, 30, C.clock, txt, { align: 0 }),
+        C.text('date', 440, 88, 170, 30, () => require('./clock').dmy(), lbl, { align: 0 }),
+        C.text('outside', 620, 88, 110, 30, (d) => C.outsideText(o, d.outside), txt, { align: 0 }),
+        C.text('battT', 1190, 88, 130, 30, (d) => 'BATT ' + C.tempText(o, d.battTemp), lbl, { align: 0 }),
+        C.text('energyTop', 1326, 88, 130, 30, energyText, txt, { align: 0.5 }),
+        C.text('useTop', 1462, 88, 220, 30, useFull(o), txt, { align: 1 }),
     ]);
     if (!strip) {
         // full view, the bottom band: the selector and the speed left of the warning lights, range and charge right
         const lit = (ch) => (t, d) => (C.selectorLit(d) === ch ? { color: [ch === 'R' ? t.red : t.text, 1], glow: [t.glow, 0.8] } : { color: [t.tick, 1], glow: [t.glow, 0] });
-        // (the speed here too only where its card is over the map: there whether or not the card shows)
-        list = list.concat(['P', 'R', 'N', 'D'].map((ch, i) => C.text('sel' + ch, 116 + i * 54, 660, 50, 44, ch, lit(ch))), full ? [
+        return list.concat(['P', 'R', 'N', 'D'].map((ch, i) => C.text('sel' + ch, 116 + i * 54, 660, 50, 44, ch, lit(ch))), [
+            // (the speed here too: there whether or not the card over the map shows)
             C.text('speedBand', 350, 660, 190, 44, (d) => C.speedText(o, d) + ' ' + C.speedUnit(o), txt, { align: 0.5 }),
-        ] : [], [
             C.text('rangeBand', 1536, 660, 170, 44, rangeText(o), txt, { align: 1 }),
             C.text('socBand', 1716, 660, 110, 44, C.socText, evTxt, { align: 0.5 }),
         ]);
     }
-    if (full) {
-        // over the strip (which has no charge): the range and the charge on one chip over the map's bottom right
-        return strip ? list.concat([
-            dark('rangeChip', 1436, 560, 360, 60, 0.8),
-            T('rangeMap', 1448, 572, 190, 36, rangeText(o), txt, { align: 1 }),
-            T('socMap', 1650, 572, 134, 36, C.socText, evTxt, { align: 0.5 }),
-        ]) : list;
-    }
-    // the right column: the charge, the energy in the battery, the use
-    if (strip) {
-        const rx = 1716, rw = 170;
-        return list.concat(
-            C.reading('socMap', rx, 236, rw, 56, C.socText, 'CHARGE', evTxt, lbl),
-            C.reading('energyMap', rx, 356, rw, 38, (d) => (C.isNum(d.energy) ? d.energy.toFixed(1) : '--'), 'kWh', txt, lbl),
-            C.reading('useMap', rx, 456, rw, 38, useText(o), useLabel(o).replace(/ /g, ''), txt, lbl));
-    }
-    // (full view: above and below the KOMBI's gear box, left of its eDrive box)
-    return list.concat(
-        C.reading('socMap', 1410, 150, 340, 56, C.socText, 'CHARGE', evTxt, lbl),
-        C.reading('energyMap', 1410, 478, 200, 40, (d) => (C.isNum(d.energy) ? d.energy.toFixed(1) : '--'), 'kWh', txt, lbl),
-        C.reading('useMap', 1620, 478, 200, 40, useText(o), useLabel(o).replace(/ /g, ''), txt, lbl));
-}
-
-function mapForm(o, arcs) {
-    const W = mapWindowFor(o), over = o.mapStyle === 'overlay', Z = over ? { z: 900 } : {};
-    const around = [{ x: 0, y: 0, w: 1920, h: W.y }, { x: 0, y: W.y + W.h, w: 1920, h: 720 - W.y - W.h },
-        { x: 0, y: W.y, w: W.x, h: W.h }, { x: W.x + W.w, y: W.y, w: 1920 - W.x - W.w, h: W.h }];
-    const kwC = (t, d) => ({ color: [kwOf(d) < -0.3 ? t.regen : t.text, 1], glow: [kwOf(d) < -0.3 ? t.regen : t.glow, 0.3] });
-    // five readings in a row: above the map, or on the bar over its bottom edge
-    const y = over ? W.y + W.h - 58 : 132, h = 36, x0 = W.x + 24, step = (W.w - 48) / 5;
-    const col = (i, key, value, colours) => C.text(key, Math.round(x0 + i * step), y, Math.round(step) - 12, h, value, colours, Object.assign({ align: 0.5 }, Z));
-    const row = [
-        col(0, 'speedMap', (d) => C.speedText(o, d) + ' ' + C.speedUnit(o), big),
-        col(1, 'kwMap', C.kwText, kwC),
-        col(2, 'socMap', C.socText, evTxt),
-        col(3, 'rangeMap', rangeText(o), txt),
-        col(4, 'useMap', (d) => (useText(o)(d) === '--' ? '' : useText(o)(d) + ' ' + useLabel(o).replace(/ /g, '')), txt),
-    ];
-    const bar = over ? [{ key: 'mapBar', kind: 'panel', x: W.x + 12, y: y - 10, w: W.w - 24, h: h + 20, z: 890, params: { u_box: [16, 1, 0.7, 0.74] },
-        colors: (t) => ({ top: '#05080c', bottom: '#020304', border: t.cardEdge }) }] : [];
-    return around.map((b, i) => bg('bg' + i, b.x, b.y, b.w, b.h)).concat(arcs, bar, row);
+    return list.concat([
+        dark('rangeChip', 1436, 560, 360, 60),
+        T('rangeMap', 1448, 572, 190, 36, rangeText(o), txt, { align: 1 }),
+        T('socMap', 1650, 572, 134, 36, C.socText, evTxt, { align: 0.5 }),
+    ]);
 }
 
 module.exports = {
@@ -276,7 +227,7 @@ module.exports = {
     dap: true,          // (its road: the driving assistant's view, dap.js)
     palette: (lookId) => PALETTES[lookId] || PALETTES.comfort,
     gearText: C.gearText,
-    mapWindowFor,       // (its own, larger map window for Waze on cluster: main.js)
+    mapWindow: MAPWIN,  // (its own map window for Waze on cluster: edge to edge)
 
     pieces(o) {
         const s = C.speedScale(o), r = C.rpmScale(o);
@@ -319,8 +270,10 @@ module.exports = {
         const gearC = (t, d) => ({ color: [C.gearText(d) === 'R' ? '#ff3b30' : t.text, 1], glow: [t.glow, 0.45] });
         const rpmTxt = (d) => 'RANGE ' + C.erangeText(o, d);
         const hotC = (k, lim) => (t, d) => ({ color: [C.isNum(d[k]) && d[k] >= lim ? '#ff3b30' : t.text, 1], glow: [t.glow, 0] });
-        if (bigMap(o)) return o.mapStyle === 'clean' || o.mapStyle === 'full' ? cleanForm(o) : mapForm(o, arcs);
+        // (over the car's strip the stock centre takes the map's form too, layouts.js: for it the native area's, below)
+        if (o.centre === 'map' && !o.stockCentre) return mapForm(o);
         if (o.centre === 'map') {
+            // (the stock centre over the car's strip: its content shows in the native map area, the readings round it)
             // the arcs bulge out to x ~200 / ~1720; the speed and gear sit between them and the map
             const bot = C.MAP.y + C.MAP.h;
             return C.aroundMap().map((b, i) => bg('bg' + i, b.x, b.y, b.w, b.h)).concat(arcs, [

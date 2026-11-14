@@ -95,7 +95,9 @@ LAYOUTS.forEach((L) => {
         const { clashes } = require('./clearance');
         const o = { speedUnit: 'mph', tempUnit: 'f', centre: 'map', redline: 7000, rpmMax: 8000 };
         const hole = (l) => /^(mdash|sdash)$/.test(l.kind) && l.params.u_hole && l.params.u_hole[2] > 0;   // (cut see-through there)
-        assert(over.every((l) => (l.geo && l.geo[2] > 0) || hole(l) || (l.kind === 'chevron' && clashes(l, o).indexOf('over the map') < 0)), 'over the map: ' + over.map((l) => l.key).join(' '));
+        // (or it asks for a place above the map, Electric's card: z)
+        const above = (l) => { const p = L.pieces(o).find((q) => q.key === l.key); return !!p && p.z >= 890; };
+        assert(over.every((l) => (l.geo && l.geo[2] > 0) || hole(l) || above(l) || (l.kind === 'chevron' && clashes(l, o).indexOf('over the map') < 0)), 'over the map: ' + over.map((l) => l.key).join(' '));
         s.stop();
     });
     ['comfort', 'sport', 'efficient'].forEach((look) => check(id + ': ' + look + ' palette has every colour its pieces use', () => {

@@ -2,7 +2,7 @@
   "id": "cluster_layouts",
   "title": "Cluster Layouts",
   "description": "Your own layout on the whole instrument cluster (round dials, gear, temperatures), drawn by the cluster itself",
-  "version": "0.33.0",
+  "version": "0.34.0",
   "startType": "autostart",
   "vendor": "custom",
   "loggingId": "OA9L",
@@ -408,19 +408,6 @@
           "stock",
           "Stock (the stock centre content)"
         ]
-      ]
-    },
-    {
-      "key": "mapStyle",
-      "label": "Electric layout: the Waze map",
-      "type": "choice",
-      "default": "full",
-      "options": [
-        ["full", "Map edge to edge, the speed on a dark card over it (experimental)"],
-        ["clean", "Map as the cluster: no dials, the speed on the left, the charge on the right"],
-        ["wide", "Large (between the arcs, the readings in a row above it)"],
-        ["overlay", "Largest, the readings over the map on a dark bar (experimental)"],
-        ["standard", "Standard (the native map area)"]
       ]
     },
     {

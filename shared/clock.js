@@ -39,6 +39,12 @@ function local(ms) {
     const d = new Date(t + (zone.off + (inDst(zone, t) ? 1 : 0)) * 3600000);
     return { h: d.getUTCHours(), m: d.getUTCMinutes() };
 }
+/** The local date as '14/11/2026' (day/month/year, as written in Brazil and most of the world). */
+function dmy(ms) {
+    const t = ms === undefined ? Date.now() : ms;
+    const d = new Date(t + (zone.off + (inDst(zone, t) ? 1 : 0)) * 3600000), p = (n) => ('0' + n).slice(-2);
+    return p(d.getUTCDate()) + '/' + p(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear();
+}
 let twelve = true;
 /** 12-hour (true, the default) or 24-hour clock. */
 function setTwelve(on) { twelve = on !== false; }
@@ -48,4 +54,4 @@ function hm(ms) {
     return (twelve ? (t.h % 12) || 12 : t.h) + ':' + mm;
 }
 
-module.exports = { ZONES, setZone, setTwelve, local, hm, inDst };
+module.exports = { ZONES, setZone, setTwelve, local, hm, dmy, inDst };

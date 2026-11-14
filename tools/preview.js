@@ -115,7 +115,9 @@ async function render(scene, out, mapWindow, over) {
 
 if (require.main === module) {
     const a = args(process.argv.slice(2));
-    const s = makeScene({ layout: a.layout, look: a.look, black: !!a.black, options: { centre: a.centre, speedUnit: a.kmh ? 'kmh' : 'mph', vehicle: a.engine ? 'ice' : a.bev ? 'bev' : 'phev', cluster: a.mcar ? 'm' : 'standard', bottomStrip: a.strip ? 'stock' : 'layout', mapStyle: a.mapstyle || 'standard' },
+    // (--kmh: a metric car's clock too - 24-hour, Brasília's time)
+    if (a.kmh) { const ck = require('../apps/cluster_layouts/clock'); ck.setTwelve(false); ck.setZone('utc-3'); }
+    const s = makeScene({ layout: a.layout, look: a.look, black: !!a.black, options: { centre: a.centre, speedUnit: a.kmh ? 'kmh' : 'mph', vehicle: a.engine ? 'ice' : a.bev ? 'bev' : 'phev', cluster: a.mcar ? 'm' : 'standard', bottomStrip: a.strip ? 'stock' : 'layout', tempUnit: a.kmh ? 'c' : 'f' },
         data: { speed: a.speed * (a.kmh ? 1 : 1.609344), rpm: a.rpm, gear: a.gear, stage: a.stage, mode: a.mode, driveMode: a.drive, oil: a.oil, coolant: a.coolant, outside: a.outside, soc: a.soc, kw: a.kw, erange: a.erange, frange: a.frange,
             gearbox: a.gearbox, iat: a.iat, battTemp: a.batt, use: a.use, soh: a.soh, energy: a.energy, boostActual: a.boost, torque: 312, timing: 14.5, hpfp: 205, boostTarget: 0.9, engineOn: a.rpm > 300, tyres: { p: { FL: 2.48, FR: 2.50, RL: 2.62, RR: 2.60 }, t: { FL: 24, FR: 25, RL: 27, RR: 26 } }, fuelPct: a.fuel, pdDrive: 62, pdClimate: 24, pdSeats: 14, dap: a.dap ? require('../apps/cluster_layouts/dap').DEMO : null } });
     // let the needles ease to their readings
@@ -137,7 +139,7 @@ if (require.main === module) {
     s.stop();
     scene.time = a.time || 0;
     const LY = require('../apps/cluster_layouts/layouts').byId(a.layout);
-    render(scene, a.out, a.centre === 'map' && ((LY.mapWindowFor && LY.mapWindowFor({ centre: 'map', bottomStrip: a.strip ? 'stock' : 'layout', mapStyle: a.mapstyle || 'standard' })) || LY.mapWindow || true), a.mcar ? require('../apps/cluster_layouts/layout_common').M_BOXES : []).then((errors) => {
+    render(scene, a.out, a.centre === 'map' && (LY.mapWindow || true), a.mcar ? require('../apps/cluster_layouts/layout_common').M_BOXES : []).then((errors) => {
         if (errors.length) { console.error(errors.join('\n')); process.exit(1); }
         console.log('wrote ' + path.resolve(a.out) + ' (' + scene.quads.length + ' layers)');
         process.exit(0);

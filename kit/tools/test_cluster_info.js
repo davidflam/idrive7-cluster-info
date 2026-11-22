@@ -53,7 +53,8 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
     check('the shared folder is made, open to every app (sticky)', () => assert((fs.statSync(dir).mode & 0o1777) === 0o1777));
     check('the panel is up over the map: wanted.json says what it shows', () => {
         const w = JSON.parse(fs.readFileSync(path.join(dir, 'wanted.json'), 'utf8'));
-        assert(w.power === true && w.values.indexOf('battery') >= 0 && w.values.indexOf('oil') >= 0, JSON.stringify(w));
+        // (this fork's third item is the charge: an electric car's)
+        assert(w.power === true && w.values.indexOf('battery') >= 0 && w.values.indexOf('soc') >= 0, JSON.stringify(w));
     });
 
     // a provider beside it, as eDrive Live is on the car: it writes its file in the documented format

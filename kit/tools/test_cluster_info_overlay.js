@@ -347,6 +347,13 @@ check('the thin kW bar: in a strip above the panel, the panel where it was, the 
         const l = [...crl.layers.values()].filter((x) => x.target === 'hud' && x.z === 11).pop();
         assert(l && l.visible, 'shown on the HUD'); assert.strictEqual(ov.nowPlaying().text, song);
     });
+    song = { title: 'Feels Right (I Love It) - Extended Mix', artist: 'Eddie, Brian Holiday' };
+    ov._npTick();
+    check('now playing: too long for one row, two (title, artist), clear of the HUD\'s speed readout', () => {
+        const l = [...crl.layers.values()].filter((x) => x.target === 'hud' && x.z === 11).pop();
+        assert(l && l.visible); assert.strictEqual(l.h, 52); assert(l.x >= 405, 'x ' + l.x); assert(l.w <= 280);
+        assert.strictEqual(ov.nowPlaying().text, song.title + '\n' + song.artist);
+    });
     song = '';
     ov._npTick();
     check('now playing: no text, the line hidden', () => {

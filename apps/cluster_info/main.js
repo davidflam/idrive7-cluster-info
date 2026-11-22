@@ -184,10 +184,30 @@ mgu.run({
             };
             tryNext();
         }
+        /* The album picture (HmiMediaState.coverArt): its shape is not known yet, so its raw value is kept, and any
+         * text in it that looks like a file path is looked at (exists, size, PNG or JPEG) for the page. */
+        const cover = { raw: null, file: null };
+        function onCover(v) {
+            try { cover.raw = JSON.stringify(v); } catch (e) { cover.raw = String(v); }
+            const paths = [];
+            (function walk(x, d) {
+                if (typeof x === 'string') { if (/^(file:\/\/)?\/.+/.test(x)) paths.push(x.replace(/^file:\/\//, '')); return; }
+                if (x && typeof x === 'object' && d < 6) Object.keys(x).forEach((k) => walk(x[k], d + 1));
+            })(v, 0);
+            cover.file = paths.length ? paths.map((f) => {
+                try {
+                    const st = fs.statSync(f), b = Buffer.alloc(4), fd = fs.openSync(f, 'r');
+                    fs.readSync(fd, b, 0, 4, 0); fs.closeSync(fd);
+                    const kind = b[0] === 0x89 && b[1] === 0x50 ? 'PNG' : b[0] === 0xFF && b[1] === 0xD8 ? 'JPEG' : 'bytes ' + b.toString('hex');
+                    return f + ': ' + st.size + ' bytes, ' + kind;
+                } catch (e) { return f + ': ' + (e.code || e.message); }
+            }).join('; ') : 'no file path in it';
+            log.info('cover art: ' + cover.raw.slice(0, 300) + ' -> ' + cover.file);
+        }
         const put = (name) => (v) => { const r = np.put(name, v); if (r.title || r.artist) live.np = np.line(80); };
         if (settings.get('nowPlaying') !== 'off') {
             watchMedia('media screen', 'de.bmw.infotainment.hmi.hmimediastate.HmiMediaState',
-                { playerMetadata: put('hmi'), mainMenuMetadata: put('menu') });
+                { playerMetadata: put('hmi'), mainMenuMetadata: put('menu'), coverArt: onCover });
             watchMedia('Android Auto', 'de.bmw.infotainment.sdi.aap.androidautoprojectedmediaplayer.AndroidAutoProjectedMediaPlayer',
                 { currentItemMetadata: put('aa') });
             watchMedia('media player', 'de.bmw.infotainment.entertainment.mediaplayer.MediaPlayer',
@@ -267,8 +287,8 @@ mgu.run({
             keepFast() { if (!awake.off()) providers.want({ power: slots().indexOf('power') >= 0 || (settings.get('underline') || 'off') !== 'off', values: chosen() }); },
             indicator: () => live.indicator,
             night: () => live.night === true,
-            /** The now-playing line for the HUD (setting nowPlaying), '' for none. */
-            nowPlaying: () => (settings.get('nowPlaying') === 'off' ? '' : np.line(60)),
+            /** What plays now for the HUD (setting nowPlaying): { title, artist }, null for none. */
+            nowPlaying: () => (settings.get('nowPlaying') === 'off' ? null : np.now()),
         };
         let overlay = null, overlayError = null;
         try { overlay = startOverlay(ctx, src); } catch (e) { overlayError = String(e); log.warn('overlay: ' + e); }
@@ -315,11 +335,19 @@ mgu.run({
                 + '   ·   panel shown: ' + settings.display('show'), 48, 190, 17, t.dim, { font: 'label', literal: true });
             const rows = [['media screen', 'hmi', 'menu'], ['Android Auto', 'aa'], ['media player', 'player']];
             let y = 226;
-            rows.forEach(([what, ...names]) => {
+            rows.forEach(([what, ...nm]) => {
+                let names = nm;
                 const ms = what + ': ' + (mediaStatus[what] || (settings.get('nowPlaying') === 'off' ? 'not watched' : 'waiting'));
                 cv.text(ms.length > 150 ? ms.slice(0, 149) + '…' : ms, 48, y, 19, t.text, { font: 'bold', literal: true });
                 y += 26;
+                if (what === 'media screen') names = names.concat('cover');
                 names.forEach((n) => {
+                    if (n === 'cover') {
+                        const c = (cover.raw ? cover.raw : 'nothing received') + (cover.file ? '   ->   ' + cover.file : '');
+                        cv.text('cover: ' + (c.length > 190 ? c.slice(0, 189) + '…' : c), 64, y, 15, t.dim, { font: 'label', literal: true });
+                        y += 24;
+                        return;
+                    }
                     const s = srcs[n];
                     const raw = s ? s.raw : 'nothing received';
                     cv.text(n + ': ' + (raw.length > 190 ? raw.slice(0, 189) + '…' : raw), 64, y, 15, t.dim, { font: 'label', literal: true });

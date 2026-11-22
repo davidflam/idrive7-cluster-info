@@ -40,7 +40,9 @@ const HUD_MAX_PCT = 85;           // the HUD map's widest (waze-on-cluster hud_w
 const ARROW = { w: 30, h: 24, y: 146, left: 349, right: 421 };   // the cluster's proportions (5:4)
 const INDICATOR_GREEN = '#22d046';   // the cluster's indicator green
 const EXTRA_COL = 1.0;            // an extra value's column, of the panel's height (fits "188°")             // an extra value's column, of the meter's base width
-const NP_H = 30;                  // the now-playing line's height on the HUD
+const NP_H = 30;                  // the now-playing line's height on the HUD (one row)
+const NP_H2 = 52;                 // ... with two rows (the title, the artist under it)
+const NP_W = 280;                 // ... its widest
 const NP_TICK_MS = 500;           // ... looked at this often
 const NIGHT_DIM = 0.6;            // the HUD extras at night, of their brightness by day
 // the cluster's own arrow, measured over 39 flashes of a video (G05): 640 ms a flash, lit 335 of them. By the head
@@ -455,15 +457,32 @@ function startOverlay(ctx, lv, opts) {
         if (npShown && cr && npRef) cr.set(npRef, { visible: false });
         npShown = false;
     }
+    /** lv.nowPlaying() as { title, artist } (a plain string: the title alone). */
+    function npNow() {
+        const v = where() !== 'off' && lv.nowPlaying ? lv.nowPlaying() : null;
+        if (!v) return null;
+        const o = typeof v === 'string' ? { title: v, artist: '' } : { title: String(v.title || ''), artist: String(v.artist || '') };
+        return o.title || o.artist ? o : null;
+    }
+    const fit = (c, s, size, font, max) => {
+        while (s.length > 4 && c.textWidth(s, size, { font, literal: true }) > max) s = s.slice(0, -2).trimEnd() + '…';
+        return s;
+    };
     function npTick() {
-        const text = where() !== 'off' && lv.nowPlaying ? lv.nowPlaying() || '' : '';
         // on the HUD wherever the panel is (as the turn signal arrows: the panel may be on the cluster's map)
-        if (!text) return npHide();
+        const cur = npNow();
+        if (!cur) return npHide();
+        const one = cur.artist && cur.title && cur.artist !== cur.title ? cur.artist + ' - ' + cur.title : cur.title || cur.artist;
         const r = mapRect('hud', map.pct, map.hx, map.hy);
         const right = Math.min(r.x + r.w, HUD_VISIBLE_RIGHT) - HUD_RIGHT_GAP;
-        const h = NP_H, size = Math.round(h * 0.62);
-        const tw = Math.ceil(measure.textWidth(text, size, { font: 'bold', literal: true }));
-        const w = Math.min(right - Math.max(0, r.x), tw + Math.round(h * 0.8));
+        // never left of the HUD's own speed readout (HUD_SPEED_CLEAR): at most NP_W wide
+        const left = Math.max(HUD_SPEED_CLEAR, r.x, right - NP_W);
+        const size = Math.round(NP_H * 0.62), pad = Math.round(NP_H * 0.4), room = right - left;
+        const oneW = Math.ceil(measure.textWidth(one, size, { font: 'bold', literal: true }));
+        // one row when "Artist - Title" fits; else two: the title, the artist under it (smaller)
+        const two = oneW + 2 * pad > room && !!(cur.title && cur.artist);
+        const h = two ? NP_H2 : NP_H;
+        const w = two ? room : Math.min(room, oneW + 2 * pad);
         const by = badge && badge.target === 'hud' ? badge.y : HUD_VISIBLE_BOTTOM - Math.round(HUD_MAX_H * 0.8);
         const y = Math.max(0, (where() === 'top' && badge && badge.target === 'hud' ? badge.y + badge.h + 4 : by - h - 4));
         const x = right - w;
@@ -475,14 +494,18 @@ function startOverlay(ctx, lv, opts) {
             npRef = cr.image({ target: 'hud', klass: 'overlay', z: 11, x, y, w, h, iw: w, ih: h, visible: false, opacity: hudOpacity() });
             if (!npRef) { warnOnce('the renderer refused the now-playing layer'); return undefined; }
         }
+        const text = two ? cur.title + '\n' + cur.artist : one;
         if (text !== npText) {
             const c = new Canvas(w, h), t = ctx.theme();
             c.clear([0, 0, 0, 0]);
-            c.roundRect(0, 0, w, h, h * 0.32, [8, 9, 12, 190]);
-            const pad = Math.round(h * 0.4);
-            let s = text;
-            while (s.length > 4 && c.textWidth(s, size, { font: 'bold', literal: true }) > w - 2 * pad) s = s.slice(0, -2) + '…';
-            c.text(s, w - pad, Math.round(h * 0.72), size, t.text, { font: 'bold', align: 'right', literal: true });
+            c.roundRect(0, 0, w, h, NP_H * 0.32, [8, 9, 12, 190]);
+            if (two) {
+                const s2 = Math.round(NP_H2 * 0.3);
+                c.text(fit(c, cur.title, size, 'bold', w - 2 * pad), w - pad, Math.round(NP_H2 * 0.44), size, t.text, { font: 'bold', align: 'right', literal: true });
+                c.text(fit(c, cur.artist, s2, 'bold', w - 2 * pad), w - pad, Math.round(NP_H2 * 0.84), s2, t.dim || t.text, { font: 'bold', align: 'right', literal: true });
+            } else {
+                c.text(fit(c, one, size, 'bold', w - 2 * pad), w - pad, Math.round(h * 0.72), size, t.text, { font: 'bold', align: 'right', literal: true });
+            }
             cr.pixels(npRef, null, Buffer.from(c.d.buffer, c.d.byteOffset, c.d.length));
             npText = text;
         }

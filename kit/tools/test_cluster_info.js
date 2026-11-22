@@ -131,6 +131,12 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
         drawn.length = 0; clicks.BTN_SIGNALS();
         assert(drawn.some((x) => x === 'Now playing on the HUD: Elis Regina - Águas de Março   (from hmi)'), drawn.join(' | '));
         assert(drawn.some((x) => /^hmi: \{"sink":0/.test(x)), 'raw value shown: ' + drawn.join(' | '));
+        assert(drawn.some((x) => x === 'cover: nothing received'), 'the cover art row: ' + drawn.join(' | '));
+        const png = path.join(tmp, 'cover.png');
+        fs.writeFileSync(png, Buffer.from([0x89, 0x50, 0x4E, 0x47, 0, 0, 0, 0]));
+        handlers.coverArt({ trackId: '0', uri: 'file://' + png });
+        drawn.length = 0; loops.MAIN();
+        assert(drawn.some((x) => x.startsWith('cover: {"trackId":"0"') && x.includes(png + ': 8 bytes, PNG')), 'cover file looked at: ' + drawn.join(' | '));
     });
     // what the car sent with CarPlay playing (photo, iX3 G08, Nov 22 2026): the screen's lines are artist and album,
     // the menu tile's are title, artist, album

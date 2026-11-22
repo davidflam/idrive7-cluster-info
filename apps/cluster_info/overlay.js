@@ -447,9 +447,9 @@ function startOverlay(ctx, lv, opts) {
     process.on('exit', () => { hide(); });
 
     /* ---------- now playing on the HUD ----------
-     * lv.nowPlaying(): the line ('' for none). One small layer on the HUD, right-aligned with the panel and just
-     * above it (or where the panel would be, while it is not up); drawn again only when the text or its place
-     * changes. */
+     * lv.nowPlaying(): the line ('' for none). One small layer on the HUD, whether the panel is on the HUD or on
+     * the cluster's map (as the turn signal arrows), right-aligned with the panel and just above it while it is on
+     * the HUD (else where it would be); drawn again only when the text or its place changes. */
     let npRef = 0, npGeo = '', npText = null, npShown = false;
     function npHide() {
         if (npShown && cr && npRef) cr.set(npRef, { visible: false });
@@ -457,15 +457,15 @@ function startOverlay(ctx, lv, opts) {
     }
     function npTick() {
         const text = where() !== 'off' && lv.nowPlaying ? lv.nowPlaying() || '' : '';
-        const pl = place();
-        if (!text || !pl || pl.target !== 'hud') return npHide();
-        const r = mapRect('hud', pl.pct, pl.hx, pl.hy);
+        // on the HUD wherever the panel is (as the turn signal arrows: the panel may be on the cluster's map)
+        if (!text) return npHide();
+        const r = mapRect('hud', map.pct, map.hx, map.hy);
         const right = Math.min(r.x + r.w, HUD_VISIBLE_RIGHT) - HUD_RIGHT_GAP;
         const h = NP_H, size = Math.round(h * 0.62);
         const tw = Math.ceil(measure.textWidth(text, size, { font: 'bold', literal: true }));
         const w = Math.min(right - Math.max(0, r.x), tw + Math.round(h * 0.8));
         const by = badge && badge.target === 'hud' ? badge.y : HUD_VISIBLE_BOTTOM - Math.round(HUD_MAX_H * 0.8);
-        const y = Math.max(0, (where() === 'top' && badge ? badge.y + badge.h + 4 : by - h - 4));
+        const y = Math.max(0, (where() === 'top' && badge && badge.target === 'hud' ? badge.y + badge.h + 4 : by - h - 4));
         const x = right - w;
         const key = [x, y, w, h].join(',');
         if (!client()) return undefined;

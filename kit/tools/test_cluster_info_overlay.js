@@ -339,9 +339,20 @@ check('the thin kW bar: in a strip above the panel, the panel where it was, the 
     const before = crl.log.length;
     ov._npTick();
     check('now playing: the same text, nothing sent again', () => assert.strictEqual(crl.log.length, before));
+    // the panel on the cluster's map (show: where the Waze map is): the line still on the HUD
+    settings.v.show = 'map';
+    write({ state: 'showing', target: 'map', hud_width_pct: 0 });
+    ov._read(); await wait(); t += 1000; ov._tick(); song = 'Luke Bergs - Kids In Love'; ov._npTick();
+    check('now playing: on the HUD while the panel is on the cluster\'s map', () => {
+        const l = [...crl.layers.values()].filter((x) => x.target === 'hud' && x.z === 11).pop();
+        assert(l && l.visible, 'shown on the HUD'); assert.strictEqual(ov.nowPlaying().text, song);
+    });
     song = '';
     ov._npTick();
-    check('now playing: no text, the line hidden', () => { assert.strictEqual(crl.layers.get(np[0]).visible, false); assert.strictEqual(ov.nowPlaying().shown, false); });
+    check('now playing: no text, the line hidden', () => {
+        const l = [...crl.layers.values()].filter((x) => x.target === 'hud' && x.z === 11).pop();
+        assert.strictEqual(l.visible, false); assert.strictEqual(ov.nowPlaying().shown, false);
+    });
 }
 console.log(ok + ' checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });

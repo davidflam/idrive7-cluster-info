@@ -40,6 +40,8 @@ const HUD_MAX_PCT = 85;           // the HUD map's widest (waze-on-cluster hud_w
 const ARROW = { w: 30, h: 24, y: 146, left: 349, right: 421 };   // the cluster's proportions (5:4)
 const INDICATOR_GREEN = '#22d046';   // the cluster's indicator green
 const EXTRA_COL = 1.0;            // an extra value's column, of the panel's height (fits "188°")             // an extra value's column, of the meter's base width
+const NP_H = 30;                  // the now-playing line's height on the HUD
+const NP_TICK_MS = 500;           // ... looked at this often
 const NIGHT_DIM = 0.6;            // the HUD extras at night, of their brightness by day
 // the cluster's own arrow, measured over 39 flashes of a video (G05): 640 ms a flash, lit 335 of them. By the head
 // unit's clock that is 638 (its clock ran ~0.3 % behind the cluster's flasher there), and the car tells the head unit
@@ -319,6 +321,7 @@ function startOverlay(ctx, lv, opts) {
     let CR = opts.ClusterRender;
     let cr = null, ref = 0, geo = '', cv = null, last = null, visible = false, lastT = 0, lastKey = '';
     let map = { showing: false, target: null, pct: 0, hx: 0, hy: 0 }, statusText = '';
+    let badge = null;     // the panel's rectangle while it is up (the now-playing line goes above it)
     let warned = '';
     const warnOnce = (m) => { if (m !== warned) { warned = m; log.warn('map overlay: ' + m); } };
 
@@ -355,6 +358,7 @@ function startOverlay(ctx, lv, opts) {
     function hide() {
         if (cr && ref && visible) cr.set(ref, { visible: false });
         visible = false;
+        badge = null;
     }
 
     /** The layer for the map's current place; a new one when its size or place changed. */
@@ -368,6 +372,7 @@ function startOverlay(ctx, lv, opts) {
         if (!r) return 0;
         const b = badgeRect(r, where(), pl.target, nExtras, hasPower, !!(lv.underOn && lv.underOn(pl.target)));
         const key = [pl.target, b.x, b.y, b.w, b.h, b.ph].join(',');
+        badge = { target: pl.target, x: b.x, y: b.y, w: b.w, h: b.h };
         if (key === geo && ref) return ref;
         if (!client()) return 0;
         if (ref) cr.drop(ref);
@@ -435,6 +440,52 @@ function startOverlay(ctx, lv, opts) {
     readStatus();
     process.on('exit', () => { hide(); });
 
+    /* ---------- now playing on the HUD ----------
+     * lv.nowPlaying(): the line ('' for none). One small layer on the HUD, right-aligned with the panel and just
+     * above it (or where the panel would be, while it is not up); drawn again only when the text or its place
+     * changes. */
+    let npRef = 0, npGeo = '', npText = null, npShown = false;
+    function npHide() {
+        if (npShown && cr && npRef) cr.set(npRef, { visible: false });
+        npShown = false;
+    }
+    function npTick() {
+        const text = where() !== 'off' && lv.nowPlaying ? lv.nowPlaying() || '' : '';
+        const pl = place();
+        if (!text || !pl || pl.target !== 'hud') return npHide();
+        const r = mapRect('hud', pl.pct, pl.hx, pl.hy);
+        const right = Math.min(r.x + r.w, HUD_VISIBLE_RIGHT) - HUD_RIGHT_GAP;
+        const h = NP_H, size = Math.round(h * 0.62);
+        const tw = Math.ceil(measure.textWidth(text, size, { font: 'bold', literal: true }));
+        const w = Math.min(right - Math.max(0, r.x), tw + Math.round(h * 0.8));
+        const by = badge && badge.target === 'hud' ? badge.y : HUD_VISIBLE_BOTTOM - Math.round(HUD_MAX_H * 0.8);
+        const y = Math.max(0, (where() === 'top' && badge ? badge.y + badge.h + 4 : by - h - 4));
+        const x = right - w;
+        const key = [x, y, w, h].join(',');
+        if (!client()) return undefined;
+        if (key !== npGeo || !npRef) {
+            if (npRef) cr.drop(npRef);
+            npGeo = key; npText = null; npShown = false;
+            npRef = cr.image({ target: 'hud', klass: 'overlay', z: 11, x, y, w, h, iw: w, ih: h, visible: false, opacity: hudOpacity() });
+            if (!npRef) { warnOnce('the renderer refused the now-playing layer'); return undefined; }
+        }
+        if (text !== npText) {
+            const c = new Canvas(w, h), t = ctx.theme();
+            c.clear([0, 0, 0, 0]);
+            c.roundRect(0, 0, w, h, h * 0.32, [8, 9, 12, 190]);
+            const pad = Math.round(h * 0.4);
+            let s = text;
+            while (s.length > 4 && c.textWidth(s, size, { font: 'bold', literal: true }) > w - 2 * pad) s = s.slice(0, -2) + '…';
+            c.text(s, w - pad, Math.round(h * 0.72), size, t.text, { font: 'bold', align: 'right', literal: true });
+            cr.pixels(npRef, null, Buffer.from(c.d.buffer, c.d.byteOffset, c.d.length));
+            npText = text;
+        }
+        if (!npShown) { cr.set(npRef, { visible: true, opacity: hudOpacity() }); npShown = true; }
+        return undefined;
+    }
+    const npTimer = si(npTick, NP_TICK_MS);
+    process.on('exit', () => { npHide(); });
+
     /* ---------- turn signals on the HUD ----------
      * lv.indicator(): 'off' | 'left' | 'right' | 'both' (hazards), from the car's light module. The two arrows
      * are drawn and sent once; blinking only switches their opacity (a few bytes each time, no pixels), and
@@ -487,7 +538,10 @@ function startOverlay(ctx, lv, opts) {
         shown: () => visible,
         /** The Waze map as status.json says: { showing, target, pct }. */
         map: () => Object.assign({}, map),
-        stop() { ci(poll); ci(draw); ci(arrowTimer); if (watcher) watcher.close(); hide(); hideArrows(); if (cr) cr.close(); },
+        stop() { ci(poll); ci(draw); ci(arrowTimer); ci(npTimer); if (watcher) watcher.close(); hide(); hideArrows(); npHide(); if (cr) cr.close(); },
+        /** The now-playing line: { shown, text }. */
+        nowPlaying: () => ({ shown: npShown, text: npText }),
+        _npTick: npTick,
         /** For the diagnostics: the renderer link and the Waze map as status.json says. */
         status: () => ({
             renderer: cr ? (cr.ready ? 'connected' : 'connecting') : 'not needed yet',

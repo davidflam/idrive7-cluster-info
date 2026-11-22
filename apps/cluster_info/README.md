@@ -20,6 +20,8 @@ A small panel of live values over the Waze map in the instrument cluster or on t
 
 **Range (this fork):** a panel item, *Range (km, from eDrive)*: eDrive's range (eDrive 2.11.4 or later shares it while this item asks for it), in km with Celsius and miles with Fahrenheit. It shows beside the car's own range, which no app can replace.
 
+**Now playing (this fork):** the music playing now, one line on the HUD (*Artist - Title*) just above the panel, from the car's own media signals: the media screen's lines (HmiMediaState.playerMetadata, any source), Android Auto's current item, the head unit's player. Setting *Now playing (music) on the HUD* (on by default; a change takes effect when the app restarts). The first *Media signals* page shows the line, which source it came from, and each signal's raw value, to photograph if it stays empty.
+
 ## Providing values from your app
 
 Write `/dev/shm/cluster-info/<your app id>.json` a few times a second while you have fresh values, replacing

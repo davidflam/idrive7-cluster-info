@@ -117,6 +117,13 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
     clearInterval(prov.timer);
     // Media signals (this fork): the catalog's media fields a page at a time, a title / artist one first; back to
     // the panel after the last page
+    // now playing (1.9.0): the media screen's lines, as the car's HmiMediaState sends them
+    check('Now playing: the media screen\'s two lines, on the first Media signals page', () => {
+        handlers.playerMetadata({ sink: 0, menuEntry: 1, trackId: 7, uiType: 2, firstLineText: 'Águas de Março', firstLineType: 'TITLE', secondLineText: 'Elis Regina', secondLineType: 'ARTIST', threeRowText: '' });
+        drawn.length = 0; clicks.BTN_SIGNALS();
+        assert(drawn.some((x) => x === 'Now playing on the HUD: Elis Regina - Águas de Março   (from hmi)'), drawn.join(' | '));
+        assert(drawn.some((x) => /^hmi: \{"sink":0/.test(x)), 'raw value shown: ' + drawn.join(' | '));
+    });
     check('Media signals: the catalog\'s media fields, title / artist first, then back to the panel', () => {
         drawn.length = 0; clicks.BTN_SIGNALS();
         assert(drawn.some((x) => /^2 fields in the car's catalog sound like media/.test(x)), drawn.join(' | '));

@@ -19,6 +19,7 @@ const Car = require('./kit/car');
 const { startOverlay, drawBadge, badgeRect, mapRect } = require('./overlay');
 const { startProviders, DIR } = require('./providers');
 const { findSignals } = require('./signal_finder');
+const { NowPlaying } = require('./nowplaying');
 
 /* The car's media signals, for a "now playing" line on the HUD: every field of the head unit's service catalog
  * whose name, or a member's, sounds like the current title, artist, album, station or source (signal_finder.js).
@@ -95,7 +96,7 @@ mgu.run({
          * The head unit's current user account (SessionManager.currentUserAccountReference: a getter only, read
          * every 5 s). Each driver keeps their own PROFILE_KEYS in profiles.json: a change is kept for the driver at
          * the time, and a driver seen again gets theirs back; one seen for the first time keeps what is set. */
-        const PROFILE_KEYS = ['show', 'place', 'slot1', 'slot2', 'slot3', 'bar', 'turnSignals', 'hudBrightness', 'nightDim'];
+        const PROFILE_KEYS = ['show', 'place', 'slot1', 'slot2', 'slot3', 'bar', 'turnSignals', 'nowPlaying', 'hudBrightness', 'nightDim'];
         const PROFILE_FILE = path.join(ctx.dataDir, 'profiles.json');
         let profiles = {}, applying = false;
         try { profiles = JSON.parse(fs.readFileSync(PROFILE_FILE, 'utf8')) || {}; } catch (e) { /* none yet */ }
@@ -138,6 +139,39 @@ mgu.run({
                 if (typeof b === 'number' && b >= 0 && b < 254) { live.boost = b / 100; live.boostT = Date.now(); }
             },
         }, 'boost', { pollMs: 1000 });
+
+        /* ---------- now playing: the car's own media signals (nowplaying.js), for a line on the HUD ----------
+         * Their service instance is not known (the manifest allows any): each is tried in turn, the next one when
+         * the car has not answered in MEDIA_TRY_MS, and the one that answers is kept (shown on the Media signals page). */
+        const np = new NowPlaying();
+        const mediaStatus = {};
+        const MEDIA_TRY_MS = 15000;
+        const MEDIA_INSTANCES = ['1', 'Front', '0', 'Main'];
+        function watchMedia(what, iface, handlers, instances) {
+            let i = 0;
+            const tryNext = () => {
+                const inst = instances[i];
+                mediaStatus[what] = 'trying instance ' + inst;
+                ctx.signals.watch(iface, inst, handlers, log).then((s) => {
+                    if (s.error) { mediaStatus[what] = 'error: ' + s.error; log.info('now playing, ' + what + ': ' + s.error); return; }
+                    setTimeout(() => {
+                        if (s.available) { mediaStatus[what] = 'instance ' + inst + ' answers'; log.info('now playing, ' + what + ': instance ' + inst + ' answers'); return; }
+                        if (++i >= instances.length) { mediaStatus[what] = 'no instance answered (' + instances.join(', ') + ')'; log.info('now playing, ' + what + ': ' + mediaStatus[what]); return; }
+                        s.shutdown().then(tryNext, tryNext);
+                    }, MEDIA_TRY_MS);
+                }).catch((e) => { mediaStatus[what] = 'error: ' + e; });
+            };
+            tryNext();
+        }
+        const put = (name) => (v) => { const r = np.put(name, v); if (r.title || r.artist) live.np = np.line(80); };
+        if (settings.get('nowPlaying') !== 'off') {
+            watchMedia('media screen', 'de.bmw.infotainment.hmi.hmimediastate.HmiMediaState',
+                { playerMetadata: put('hmi'), mainMenuMetadata: put('menu') }, MEDIA_INSTANCES);
+            watchMedia('Android Auto', 'de.bmw.infotainment.sdi.aap.androidautoprojectedmediaplayer.AndroidAutoProjectedMediaPlayer',
+                { currentItemMetadata: put('aa') }, MEDIA_INSTANCES);
+            watchMedia('media player', 'de.bmw.infotainment.entertainment.mediaplayer.MediaPlayer',
+                { currentItemMetadata: put('player') }, MEDIA_INSTANCES);
+        }
 
         /* ---------- what the panel shows ---------- */
         /** The three slots in order: 'power' (the kW meter) or a value's name; none and repeats left out. */
@@ -212,6 +246,8 @@ mgu.run({
             keepFast() { if (!awake.off()) providers.want({ power: slots().indexOf('power') >= 0 || (settings.get('underline') || 'off') !== 'off', values: chosen() }); },
             indicator: () => live.indicator,
             night: () => live.night === true,
+            /** The now-playing line for the HUD (setting nowPlaying), '' for none. */
+            nowPlaying: () => (settings.get('nowPlaying') === 'off' ? '' : np.line(60)),
         };
         let overlay = null, overlayError = null;
         try { overlay = startOverlay(ctx, src); } catch (e) { overlayError = String(e); log.warn('overlay: ' + e); }
@@ -229,18 +265,42 @@ mgu.run({
             }
             return media;
         };
-        const sigPages = () => Math.max(1, Math.ceil(mediaList().list.length / SIG_PER_PAGE));
+        // (page 1: now playing, what the car sends; then the catalog's candidates)
+        const sigPages = () => 1 + Math.max(1, Math.ceil(mediaList().list.length / SIG_PER_PAGE));
         ui.onClick('BTN_SIGNALS', () => { sigPage = (sigPage + 1) % (sigPages() + 1); return render(); });
         function renderSignals(cv, t) {
             const f = mediaList(), n = sigPages();
             G.panel(cv, t, 24, 44, 1552, 468, 'Media signals  ·  ' + sigPage + ' / ' + n);
             cv.text(f.error ? f.error : f.list.length + ' fields in the car\'s catalog sound like media: photograph every page (the button steps through them, then back)',
                 48, 112, 18, f.error ? t.warn : t.dim, { font: 'label', literal: true });
-            f.list.slice((sigPage - 1) * SIG_PER_PAGE, sigPage * SIG_PER_PAGE).forEach((x, i) => {
+            if (sigPage === 1) return renderNowPlaying(cv, t);
+            f.list.slice((sigPage - 2) * SIG_PER_PAGE, (sigPage - 1) * SIG_PER_PAGE).forEach((x, i) => {
                 const y = 156 + i * 50;
                 cv.text(x.iface.replace(/^de\.bmw\./, '') + '.' + x.field + (x.get ? '   get' : '') + (x.notify ? '   notify' : ''), 48, y, 19, MEDIA_FIRST.test(x.field + ' ' + x.members.join(' ')) ? t.text : t.dim, { font: 'bold', literal: true });
                 const mem = x.members.join(', ');
                 cv.text(mem ? (mem.length > 175 ? mem.slice(0, 174) + '…' : mem) : '(a single value)', 64, y + 22, 16, t.dim, { font: 'label', literal: true });
+            });
+            G.frame(cv, t, ['Cluster Info'], 0, []);
+            return ui.image('MAIN_GFX', cv);
+        }
+
+        /** Media signals, page 1: the now-playing line and every source's state and raw value (to photograph). */
+        function renderNowPlaying(cv, t) {
+            const cur = np.now(), srcs = np.sources();
+            cv.text('Now playing on the HUD: ' + (settings.get('nowPlaying') === 'off' ? 'off (Settings)' : cur ? np.line(90) + '   (from ' + cur.from + ')' : 'nothing received yet: play something, then come back'),
+                48, 156, 22, cur ? GO : t.dim, { font: 'bold', literal: true });
+            const rows = [['media screen', 'hmi', 'menu'], ['Android Auto', 'aa'], ['media player', 'player']];
+            let y = 206;
+            rows.forEach(([what, ...names]) => {
+                cv.text(what + ': ' + (mediaStatus[what] || (settings.get('nowPlaying') === 'off' ? 'not watched' : 'waiting')), 48, y, 19, t.text, { font: 'bold', literal: true });
+                y += 26;
+                names.forEach((n) => {
+                    const s = srcs[n];
+                    const raw = s ? s.raw : 'nothing received';
+                    cv.text(n + ': ' + (raw.length > 190 ? raw.slice(0, 189) + '…' : raw), 64, y, 15, t.dim, { font: 'label', literal: true });
+                    y += 24;
+                });
+                y += 8;
             });
             G.frame(cv, t, ['Cluster Info'], 0, []);
             return ui.image('MAIN_GFX', cv);

@@ -318,6 +318,31 @@ check('the thin kW bar: in a strip above the panel, the panel where it was, the 
     }
     assert.strictEqual(panelDiff, 0, 'the panel moved or drawn over'); assert(inStrip > 50, 'the bar drawn above it: ' + inStrip);
 });
+// now playing (1.9.0): a line on the HUD just above the panel, right-aligned with it; gone with no text
+{
+    let song = 'Elis Regina - Águas de Março';
+    lv.nowPlaying = () => song;
+    settings.v.show = 'hud'; settings.v.place = 'bottom';
+    kw = 20; t += 1000; ov._tick(); ov._npTick();
+    const crl = FakeCR.last;
+    const all = [...crl.layers.entries()];
+    const panel = all.filter(([, l]) => l.target === 'hud' && l.z === 10).pop()[1];
+    const np = all.filter(([, l]) => l.target === 'hud' && l.z === 11).pop();
+    check('now playing: a HUD line just above the panel, right-aligned with it, shown', () => {
+        assert(np, 'a now-playing layer');
+        const l = np[1];
+        assert.strictEqual(l.visible, true);
+        assert(l.y + l.h <= panel.y && panel.y - (l.y + l.h) <= 8, 'just above: ' + JSON.stringify([l, panel]));
+        assert.strictEqual(l.x + l.w, panel.x + panel.w, 'right edges line up');
+        assert.deepStrictEqual(ov.nowPlaying(), { shown: true, text: song });
+    });
+    const before = crl.log.length;
+    ov._npTick();
+    check('now playing: the same text, nothing sent again', () => assert.strictEqual(crl.log.length, before));
+    song = '';
+    ov._npTick();
+    check('now playing: no text, the line hidden', () => { assert.strictEqual(crl.layers.get(np[0]).visible, false); assert.strictEqual(ov.nowPlaying().shown, false); });
+}
 console.log(ok + ' checks passed');
 })().catch((e) => { console.error(e); process.exit(1); });
 

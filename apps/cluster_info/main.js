@@ -147,30 +147,51 @@ mgu.run({
         const mediaStatus = {};
         const MEDIA_TRY_MS = 15000;
         const MEDIA_INSTANCES = ['1', 'Front', '0', 'Main'];
-        function watchMedia(what, iface, handlers, instances) {
+        /** The instances the installer put in the app's interface config for iface (its 'instances' section), as
+         *  names: those first (the car refuses any other: "Instance not available in 'instances' section"). */
+        function configInstances(iface) {
+            let cfg;
+            try { cfg = (ctx.signals.loadConfig || require('./kit/signals').loadConfig)(iface); } catch (e) { return []; }
+            const ins = cfg && (cfg.instances || cfg.Instances);
+            const name = (x) => (typeof x === 'string' || typeof x === 'number' ? String(x)
+                : x && typeof x === 'object' ? String(x.instanceName || x.name || x.instance || x.instanceId || x.id || x.InstanceName || '') : '');
+            const out = Array.isArray(ins) ? ins.map(name) : ins && typeof ins === 'object' ? Object.keys(ins) : typeof ins === 'string' ? [ins] : [];
+            return out.filter((x) => x);
+        }
+        function watchMedia(what, iface, handlers) {
+            const fromCfg = configInstances(iface);
+            // (the config's names first, then the usual ones, and a bare '*' last: the binding may take it as any)
+            const instances = fromCfg.concat(MEDIA_INSTANCES.concat('*').filter((x) => fromCfg.indexOf(x) < 0));
+            const tried = [];
+            log.info('now playing, ' + what + ': instances in the config ' + (fromCfg.join(', ') || 'none'));
             let i = 0;
+            const next = (why) => {
+                tried.push(instances[i] + ' (' + why + ')');
+                if (++i >= instances.length) { mediaStatus[what] = 'none answered: ' + tried.join(', '); log.info('now playing, ' + what + ': ' + mediaStatus[what]); return; }
+                tryNext();
+            };
             const tryNext = () => {
                 const inst = instances[i];
-                mediaStatus[what] = 'trying instance ' + inst;
+                mediaStatus[what] = 'trying instance ' + inst + (fromCfg.length ? '  (config: ' + fromCfg.join(', ') + ')' : '  (config lists none)');
                 ctx.signals.watch(iface, inst, handlers, log).then((s) => {
-                    if (s.error) { mediaStatus[what] = 'error: ' + s.error; log.info('now playing, ' + what + ': ' + s.error); return; }
+                    if (s.error) return next(/not available in 'instances'/.test(s.error) ? 'not in config' : s.error.replace(/^Error:\s*/, ''));
                     setTimeout(() => {
                         if (s.available) { mediaStatus[what] = 'instance ' + inst + ' answers'; log.info('now playing, ' + what + ': instance ' + inst + ' answers'); return; }
-                        if (++i >= instances.length) { mediaStatus[what] = 'no instance answered (' + instances.join(', ') + ')'; log.info('now playing, ' + what + ': ' + mediaStatus[what]); return; }
-                        s.shutdown().then(tryNext, tryNext);
+                        s.shutdown().then(() => next('no answer'), () => next('no answer'));
                     }, MEDIA_TRY_MS);
-                }).catch((e) => { mediaStatus[what] = 'error: ' + e; });
+                    return undefined;
+                }).catch((e) => next(String(e)));
             };
             tryNext();
         }
         const put = (name) => (v) => { const r = np.put(name, v); if (r.title || r.artist) live.np = np.line(80); };
         if (settings.get('nowPlaying') !== 'off') {
             watchMedia('media screen', 'de.bmw.infotainment.hmi.hmimediastate.HmiMediaState',
-                { playerMetadata: put('hmi'), mainMenuMetadata: put('menu') }, MEDIA_INSTANCES);
+                { playerMetadata: put('hmi'), mainMenuMetadata: put('menu') });
             watchMedia('Android Auto', 'de.bmw.infotainment.sdi.aap.androidautoprojectedmediaplayer.AndroidAutoProjectedMediaPlayer',
-                { currentItemMetadata: put('aa') }, MEDIA_INSTANCES);
+                { currentItemMetadata: put('aa') });
             watchMedia('media player', 'de.bmw.infotainment.entertainment.mediaplayer.MediaPlayer',
-                { currentItemMetadata: put('player') }, MEDIA_INSTANCES);
+                { currentItemMetadata: put('player') });
         }
 
         /* ---------- what the panel shows ---------- */
@@ -292,7 +313,8 @@ mgu.run({
             const rows = [['media screen', 'hmi', 'menu'], ['Android Auto', 'aa'], ['media player', 'player']];
             let y = 206;
             rows.forEach(([what, ...names]) => {
-                cv.text(what + ': ' + (mediaStatus[what] || (settings.get('nowPlaying') === 'off' ? 'not watched' : 'waiting')), 48, y, 19, t.text, { font: 'bold', literal: true });
+                const ms = what + ': ' + (mediaStatus[what] || (settings.get('nowPlaying') === 'off' ? 'not watched' : 'waiting'));
+                cv.text(ms.length > 150 ? ms.slice(0, 149) + '…' : ms, 48, y, 19, t.text, { font: 'bold', literal: true });
                 y += 26;
                 names.forEach((n) => {
                     const s = srcs[n];

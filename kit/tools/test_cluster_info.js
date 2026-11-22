@@ -44,13 +44,17 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
 (async () => {
     const S = {};
     SPEC.settings.forEach((s) => { S[s.key] = s.default; });
-    const handlers = {}, warns = [], loops = {}, drawn = [], clicks = {};
+    const handlers = {}, warns = [], loops = {}, drawn = [], clicks = {}, watched = [];
     const ctx = {
         app: {}, ui: { onClick: (id, fn) => { clicks[id] = fn; }, text() {}, image: async () => {} },
         settings: { get: (k) => S[k], set: (k, v) => { S[k] = v; }, onChange() {}, display: (k) => String(S[k]) },
         log: { info() {}, warn: (m) => warns.push(m), error: (m, e) => warns.push(m + ' ' + e) },
         spec: SPEC, dataDir: tmp,
-        signals: { watch: (iface, inst, h) => { Object.assign(handlers, h); return Promise.resolve({ available: true }); } },
+        signals: {
+            watch: (iface, inst, h) => { watched.push([iface, inst]); Object.assign(handlers, h); return Promise.resolve({ available: true }); },
+            // the installer's interface config: the media screen's lists its own instance name
+            loadConfig: (iface) => (/HmiMediaState/.test(iface) ? { instances: [{ name: 'HmiMediaStateInst1' }] } : { instances: {} }),
+        },
         onTab() {}, hideButton() {}, onScroll() {},
         loop: (name, fps, fn) => { loops[name] = fn; },
         theme: () => themes.theme('m_tricolour'), canvas: (w, h) => { const cv = new Canvas(w, h), tx = cv.text.bind(cv); cv.text = (str, ...r) => { drawn.push(String(str)); return tx(str, ...r); }; return cv; },
@@ -118,6 +122,10 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
     // Media signals (this fork): the catalog's media fields a page at a time, a title / artist one first; back to
     // the panel after the last page
     // now playing (1.9.0): the media screen's lines, as the car's HmiMediaState sends them
+    check('Now playing: the instance named in the interface config tried first (the car refuses others)', () => {
+        assert(watched.some(([i, n]) => /HmiMediaState$/.test(i) && n === 'HmiMediaStateInst1'), JSON.stringify(watched));
+        assert(watched.some(([i, n]) => /MediaPlayer$/.test(i) && n === '1'), 'none in the config: the usual first');
+    });
     check('Now playing: the media screen\'s two lines, on the first Media signals page', () => {
         handlers.playerMetadata({ sink: 0, menuEntry: 1, trackId: 7, uiType: 2, firstLineText: 'Águas de Março', firstLineType: 'TITLE', secondLineText: 'Elis Regina', secondLineType: 'ARTIST', threeRowText: '' });
         drawn.length = 0; clicks.BTN_SIGNALS();

@@ -321,7 +321,8 @@ function startOverlay(ctx, lv, opts) {
     let CR = opts.ClusterRender;
     let cr = null, ref = 0, geo = '', cv = null, last = null, visible = false, lastT = 0, lastKey = '';
     let map = { showing: false, target: null, pct: 0, hx: 0, hy: 0 }, statusText = '';
-    let badge = null;     // the panel's rectangle while it is up (the now-playing line goes above it)
+    let badge = null;
+    const layerStates = {}, targets = {};   // the renderer's word on each layer and target (the page shows them)     // the panel's rectangle while it is up (the now-playing line goes above it)
     let warned = '';
     const warnOnce = (m) => { if (m !== warned) { warned = m; log.warn('map overlay: ' + m); } };
 
@@ -348,7 +349,12 @@ function startOverlay(ctx, lv, opts) {
         cr = new CR('cluster_info');
         // (after a reconnect the client sends each image whole again by itself)
         cr.on('ready', () => tick());
-        cr.on('layer', (r, state, reason) => { if (r === ref && state === 'error') warnOnce('layer: ' + (reason || state)); });
+        cr.on('layer', (r, state, reason) => {
+            layerStates[r] = state + (reason ? ' (' + reason + ')' : '');
+            if (r === npRef) log.info('now playing layer: ' + layerStates[r]);
+            if (r === ref && state === 'error') warnOnce('layer: ' + (reason || state));
+        });
+        cr.on('target', (name, state, holder, reason) => { targets[name] = state + (holder ? ', held by ' + holder : '') + (reason ? ' (' + reason + ')' : ''); });
         cr.on('refused', (op, r, reason) => warnOnce(op + ' refused: ' + reason));
         cr.on('error', (e) => warnOnce(String(e && e.message || e)));
         cr.connect();
@@ -541,6 +547,8 @@ function startOverlay(ctx, lv, opts) {
         stop() { ci(poll); ci(draw); ci(arrowTimer); ci(npTimer); if (watcher) watcher.close(); hide(); hideArrows(); npHide(); if (cr) cr.close(); },
         /** The now-playing line: { shown, text }. */
         nowPlaying: () => ({ shown: npShown, text: npText }),
+        /** For the page: the now-playing layer's state and the HUD's, as the renderer last said. */
+        npStatus: () => ({ layer: npRef ? layerStates[npRef] || 'sent, no word yet' : 'not made', hud: targets.hud || 'no word', geo: npGeo }),
         _npTick: npTick,
         /** For the diagnostics: the renderer link and the Waze map as status.json says. */
         status: () => ({

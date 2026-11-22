@@ -132,6 +132,18 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
         assert(drawn.some((x) => x === 'Now playing on the HUD: Elis Regina - Águas de Março   (from hmi)'), drawn.join(' | '));
         assert(drawn.some((x) => /^hmi: \{"sink":0/.test(x)), 'raw value shown: ' + drawn.join(' | '));
     });
+    // what the car sent with CarPlay playing (photo, iX3 G08, Nov 22 2026): the screen's lines are artist and album,
+    // the menu tile's are title, artist, album
+    check('Now playing, CarPlay as the car sends it: Queen - Bohemian Rhapsody (the menu tile first)', () => {
+        const NP = require(path.join(ROOT, 'apps', 'cluster_info', 'nowplaying.js'));
+        const np = new NP.NowPlaying();
+        np.put('hmi', { sink: 'FRONT', menuEntry: '0', trackId: '0', uiType: 'TWO_LINES', firstLineText: 'Queen', firstLineType: 'ARTIST', secondLineText: 'A Night At The Opera (Deluxe Edition)', secondLineType: 'ALBUM', threeRowText: '' });
+        np.put('menu', { sink: 'FRONT', menuEntry: '0', trackId: '0', firstLineText: 'Bohemian Rhapsody', secondLineText: 'Queen', thirdLineText: 'A Night At The Opera (Deluxe Edition)' });
+        np.put('aa', { songName: '', artistName: '', albumName: '', albumArtPath: '', durationInSeconds: 0, rating: 0, playlistName: '' });
+        np.put('player', []);
+        assert.strictEqual(np.line(80), 'Queen - Bohemian Rhapsody');
+        assert.strictEqual(np.now().from, 'menu');
+    });
     check('Media signals: the catalog\'s media fields, title / artist first, then back to the panel', () => {
         drawn.length = 0; clicks.BTN_SIGNALS();
         assert(drawn.some((x) => /^2 fields in the car's catalog sound like media/.test(x)), drawn.join(' | '));

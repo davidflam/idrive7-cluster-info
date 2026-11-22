@@ -5,9 +5,10 @@
  *
  *   hmi      HmiMediaState.playerMetadata: what the car's own media screen shows for any source (radio, USB,
  *            Bluetooth, phone apps): firstLineText / secondLineText (with firstLineType / secondLineType),
- *            threeRowText. The first choice.
- *   menu     HmiMediaState.mainMenuMetadata: the same for the main menu's media tile (firstLineText,
- *            secondLineText, thirdLineText).
+ *            threeRowText.
+ *   menu     HmiMediaState.mainMenuMetadata: the main menu's media tile: title, artist, album on firstLineText,
+ *            secondLineText, thirdLineText. The first choice (CarPlay, Nov 22 2026: the media screen's own two
+ *            lines were the artist and the album, this tile had the song).
  *   aa       AndroidAutoProjectedMediaPlayer.currentItemMetadata: songName, artistName (Android Auto).
  *   player   MediaPlayer.currentItemMetadata: the head unit's own player (a single value of its own shape:
  *            any member named like a title or artist is taken).
@@ -41,7 +42,7 @@ function fromHmi(v) {
     const l3 = first(v, /^(thirdLineText|threeRowText)$/i);
     // the line types, where they say which line is the artist (else the first line is the title)
     const t1 = String(first(v, /^firstLineType$/i) || all(v, /^firstLineType$/i)[0] || ''), t2 = String(first(v, /^secondLineType$/i) || all(v, /^secondLineType$/i)[0] || '');
-    if (/artist|interpret/i.test(t1) && !/artist|interpret/i.test(t2)) return { title: l2 || l3, artist: l1 };
+    if (/artist|interpret/i.test(t1) && !/artist|interpret/i.test(t2)) return { title: /album/i.test(t2) && l3 ? l3 : l2 || l3, artist: l1 };
     return { title: l1 || l2 || l3, artist: l1 ? l2 : '' };
 }
 /** Android Auto's currentItemMetadata. */
@@ -50,8 +51,16 @@ const fromAA = (v) => ({ title: first(v, /^songName$/i), artist: first(v, /^arti
 const fromGeneric = (v) => (typeof v === 'string' ? { title: str(v), artist: '' }
     : { title: first(v, /^(title|songName|song|trackName|name)$/i), artist: first(v, /^(artist|artistName|interpret|performer)$/i) });
 
-const READERS = { hmi: fromHmi, menu: fromHmi, aa: fromAA, player: fromGeneric };
-const ORDER = ['hmi', 'aa', 'player', 'menu'];
+/** mainMenuMetadata: title, artist, album on its three lines (iX3 G08: "Bohemian Rhapsody" / "Queen" / the album). */
+function fromMenu(v) {
+    if (Array.isArray(v)) { for (const e of v) { const r = fromMenu(e); if (r.title || r.artist) return r; } return { title: '', artist: '' }; }
+    if (typeof v === 'string') return { title: str(v), artist: '' };
+    const l1 = first(v, /^firstLineText$/i), l2 = first(v, /^secondLineText$/i);
+    return { title: l1 || l2, artist: l1 ? l2 : '' };
+}
+const READERS = { hmi: fromHmi, menu: fromMenu, aa: fromAA, player: fromGeneric };
+// the menu tile first: it has the song's title (the media screen's two lines were artist and album, CarPlay)
+const ORDER = ['menu', 'hmi', 'aa', 'player'];
 
 /** One line: "Artist - Title", or the one there is; at most max characters (an ellipsis at the end). */
 function line(np, max) {
@@ -88,4 +97,4 @@ function NowPlaying(opts) {
     };
 }
 
-module.exports = { NowPlaying, fromHmi, fromAA, fromGeneric, line, all };
+module.exports = { NowPlaying, fromHmi, fromMenu, fromAA, fromGeneric, line, all };

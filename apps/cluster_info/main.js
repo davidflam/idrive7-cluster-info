@@ -310,8 +310,11 @@ mgu.run({
             const cur = np.now(), srcs = np.sources();
             cv.text('Now playing on the HUD: ' + (settings.get('nowPlaying') === 'off' ? 'off (Settings)' : cur ? np.line(90) + '   (from ' + cur.from + ')' : 'nothing received yet: play something, then come back'),
                 48, 156, 22, cur ? GO : t.dim, { font: 'bold', literal: true });
+            const ns = overlay && overlay.npStatus ? overlay.npStatus() : null, nps = overlay && overlay.nowPlaying ? overlay.nowPlaying() : null;
+            cv.text('HUD line: ' + (nps && nps.shown ? 'shown' : 'not shown') + (ns ? '   ·   layer: ' + ns.layer + '   ·   HUD: ' + ns.hud + (ns.geo ? '   ·   at ' + ns.geo : '') : '')
+                + '   ·   panel shown: ' + settings.display('show'), 48, 190, 17, t.dim, { font: 'label', literal: true });
             const rows = [['media screen', 'hmi', 'menu'], ['Android Auto', 'aa'], ['media player', 'player']];
-            let y = 206;
+            let y = 226;
             rows.forEach(([what, ...names]) => {
                 const ms = what + ': ' + (mediaStatus[what] || (settings.get('nowPlaying') === 'off' ? 'not watched' : 'waiting'));
                 cv.text(ms.length > 150 ? ms.slice(0, 149) + '…' : ms, 48, y, 19, t.text, { font: 'bold', literal: true });

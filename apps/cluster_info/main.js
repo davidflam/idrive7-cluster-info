@@ -20,6 +20,7 @@ const { startOverlay, drawBadge, badgeRect, mapRect } = require('./overlay');
 const { startProviders, DIR } = require('./providers');
 const { findSignals } = require('./signal_finder');
 const { NowPlaying } = require('./nowplaying');
+const { Cover } = require('./cover');
 
 /* The car's media signals, for a "now playing" line on the HUD: every field of the head unit's service catalog
  * whose name, or a member's, sounds like the current title, artist, album, station or source (signal_finder.js).
@@ -186,9 +187,10 @@ mgu.run({
         }
         /* The album picture (HmiMediaState.coverArt): its shape is not known yet, so its raw value is kept, and any
          * text in it that looks like a file path is looked at (exists, size, PNG or JPEG) for the page. */
-        const cover = { raw: null, file: null };
+        const cover = { raw: null, file: null }, coverPic = new Cover();
         function onCover(v) {
-            try { cover.raw = JSON.stringify(v); } catch (e) { cover.raw = String(v); }
+            coverPic.put(v);
+            try { cover.raw = JSON.stringify(v, (k, x) => (k === 'coverArt' && x && x.length > 8 ? '[' + x.length + ' bytes]' : x)); } catch (e) { cover.raw = String(v); }
             const paths = [];
             (function walk(x, d) {
                 if (typeof x === 'string') { if (/^(file:\/\/)?\/.+/.test(x)) paths.push(x.replace(/^file:\/\//, '')); return; }
@@ -288,7 +290,11 @@ mgu.run({
             indicator: () => live.indicator,
             night: () => live.night === true,
             /** What plays now for the HUD (setting nowPlaying): { title, artist }, null for none. */
-            nowPlaying: () => (settings.get('nowPlaying') === 'off' ? null : np.now()),
+            nowPlaying: () => {
+                if (settings.get('nowPlaying') === 'off') return null;
+                const n = np.now();
+                return n ? Object.assign(n, { pic: coverPic.picture(), picId: coverPic.id() }) : null;
+            },
         };
         let overlay = null, overlayError = null;
         try { overlay = startOverlay(ctx, src); } catch (e) { overlayError = String(e); log.warn('overlay: ' + e); }
@@ -343,7 +349,7 @@ mgu.run({
                 if (what === 'media screen') names = names.concat('cover');
                 names.forEach((n) => {
                     if (n === 'cover') {
-                        const c = (cover.raw ? cover.raw : 'nothing received') + (cover.file ? '   ->   ' + cover.file : '');
+                        const c = (cover.raw ? coverPic.state() + '   ·   ' + cover.raw : 'nothing received') + (cover.file && cover.file !== 'no file path in it' ? '   ->   ' + cover.file : '');
                         cv.text('cover: ' + (c.length > 190 ? c.slice(0, 189) + '…' : c), 64, y, 15, t.dim, { font: 'label', literal: true });
                         y += 24;
                         return;

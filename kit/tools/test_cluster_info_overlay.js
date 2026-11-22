@@ -354,6 +354,17 @@ check('the thin kW bar: in a strip above the panel, the panel where it was, the 
         assert(l && l.visible); assert.strictEqual(l.h, 52); assert(l.x >= 405, 'x ' + l.x); assert(l.w <= 280);
         assert.strictEqual(ov.nowPlaying().text, song.title + '\n' + song.artist);
     });
+    // with the album picture: two rows, the picture at the left (a red square)
+    const red = Buffer.alloc(44 * 44 * 4); for (let i = 0; i < 44 * 44; i++) { red[i * 4] = 220; red[i * 4 + 3] = 255; }
+    song = { title: 'Monsters', artist: 'Chanin', pic: { w: 44, h: 44, rgba: red }, picId: '9/5/1000' };
+    const px0 = crl.log.length;
+    ov._npTick();
+    check('now playing: the album picture at the left of two rows', () => {
+        const l = [...crl.layers.values()].filter((x) => x.target === 'hud' && x.z === 11).pop();
+        assert(l && l.visible && l.h === 52, JSON.stringify(l));
+        assert(crl.log.slice(px0).some((e) => e[0] === 'pixels'), 'drawn');
+        assert(ov.nowPlaying().text.endsWith('#9/5/1000'));
+    });
     song = '';
     ov._npTick();
     check('now playing: no text, the line hidden', () => {

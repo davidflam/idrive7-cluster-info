@@ -132,11 +132,17 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
         assert(drawn.some((x) => x === 'Now playing on the HUD: Elis Regina - Águas de Março   (from hmi)'), drawn.join(' | '));
         assert(drawn.some((x) => /^hmi: \{"sink":0/.test(x)), 'raw value shown: ' + drawn.join(' | '));
         assert(drawn.some((x) => x === 'cover: nothing received'), 'the cover art row: ' + drawn.join(' | '));
-        const png = path.join(tmp, 'cover.png');
-        fs.writeFileSync(png, Buffer.from([0x89, 0x50, 0x4E, 0x47, 0, 0, 0, 0]));
-        handlers.coverArt({ trackId: '0', uri: 'file://' + png });
+        // the picture as the car sends it (coverArt, offset, totalSize): a PNG in two pieces
+        const { Canvas: C } = require(path.join(KIT, 'canvas'));
+        const img = new C(64, 48); img.clear([200, 30, 30, 255]); img.fillRect(0, 0, 32, 48, [30, 30, 200, 255]);
+        const png = img.png(), half = Math.floor(png.length / 2);
+        const piece = (from, to) => ({ sink: 'FRONT', menuEntry: '0', trackId: '5', coverArt: Array.from(png.slice(from, to)), coverArtId: '9', totalSize: png.length, offset: from });
+        handlers.coverArt(piece(0, half));
         drawn.length = 0; loops.MAIN();
-        assert(drawn.some((x) => x.startsWith('cover: {"trackId":"0"') && x.includes(png + ': 8 bytes, PNG')), 'cover file looked at: ' + drawn.join(' | '));
+        assert(drawn.some((x) => x.startsWith('cover: ' + half + ' of ' + png.length + ' bytes in 1 piece') && x.includes('"coverArt":"[' + half + ' bytes]"')), 'half: ' + drawn.join(' | '));
+        handlers.coverArt(piece(half, png.length));
+        drawn.length = 0; loops.MAIN();
+        assert(drawn.some((x) => x.startsWith('cover: PNG 64x48, shown')), 'whole: ' + drawn.join(' | '));
     });
     // what the car sent with CarPlay playing (photo, iX3 G08, Nov 22 2026): the screen's lines are artist and album,
     // the menu tile's are title, artist, album

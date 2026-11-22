@@ -461,7 +461,7 @@ function startOverlay(ctx, lv, opts) {
     function npNow() {
         const v = where() !== 'off' && lv.nowPlaying ? lv.nowPlaying() : null;
         if (!v) return null;
-        const o = typeof v === 'string' ? { title: v, artist: '' } : { title: String(v.title || ''), artist: String(v.artist || '') };
+        const o = typeof v === 'string' ? { title: v, artist: '' } : { title: String(v.title || ''), artist: String(v.artist || ''), pic: v.pic || null, picId: v.picId || '' };
         return o.title || o.artist ? o : null;
     }
     const fit = (c, s, size, font, max) => {
@@ -479,8 +479,10 @@ function startOverlay(ctx, lv, opts) {
         const left = Math.max(HUD_SPEED_CLEAR, r.x, right - NP_W);
         const size = Math.round(NP_H * 0.62), pad = Math.round(NP_H * 0.4), room = right - left;
         const oneW = Math.ceil(measure.textWidth(one, size, { font: 'bold', literal: true }));
-        // one row when "Artist - Title" fits; else two: the title, the artist under it (smaller)
-        const two = oneW + 2 * pad > room && !!(cur.title && cur.artist);
+        // one row when "Artist - Title" fits; else two: the title, the artist under it (smaller); with the album
+        // picture always two, the picture at the left
+        const pic = cur.pic && cur.pic.w ? cur.pic : null;
+        const two = !!pic || (oneW + 2 * pad > room && !!(cur.title && cur.artist));
         const h = two ? NP_H2 : NP_H;
         const w = two ? room : Math.min(room, oneW + 2 * pad);
         const by = badge && badge.target === 'hud' ? badge.y : HUD_VISIBLE_BOTTOM - Math.round(HUD_MAX_H * 0.8);
@@ -494,15 +496,28 @@ function startOverlay(ctx, lv, opts) {
             npRef = cr.image({ target: 'hud', klass: 'overlay', z: 11, x, y, w, h, iw: w, ih: h, visible: false, opacity: hudOpacity() });
             if (!npRef) { warnOnce('the renderer refused the now-playing layer'); return undefined; }
         }
-        const text = two ? cur.title + '\n' + cur.artist : one;
+        const text = (two ? cur.title + '\n' + cur.artist : one) + (pic ? '\n#' + cur.picId : '');
         if (text !== npText) {
             const c = new Canvas(w, h), t = ctx.theme();
             c.clear([0, 0, 0, 0]);
             c.roundRect(0, 0, w, h, NP_H * 0.32, [8, 9, 12, 190]);
             if (two) {
                 const s2 = Math.round(NP_H2 * 0.3);
-                c.text(fit(c, cur.title, size, 'bold', w - 2 * pad), w - pad, Math.round(NP_H2 * 0.44), size, t.text, { font: 'bold', align: 'right', literal: true });
-                c.text(fit(c, cur.artist, s2, 'bold', w - 2 * pad), w - pad, Math.round(NP_H2 * 0.84), s2, t.dim || t.text, { font: 'bold', align: 'right', literal: true });
+                // the album picture at the left, as large as the box allows
+                let tl = pad;
+                if (pic) {
+                    const m = Math.round((h - pic.h) / 2);
+                    for (let yy = 0; yy < pic.h; yy++) for (let xx = 0; xx < pic.w; xx++) {
+                        const si = (yy * pic.w + xx) * 4, di = ((m + yy) * w + m + xx) * 4;
+                        if (m + xx >= w || m + yy >= h) continue;
+                        const al = pic.rgba[si + 3] / 255;
+                        for (let k = 0; k < 3; k++) c.d[di + k] = Math.round(pic.rgba[si + k] * al + c.d[di + k] * (1 - al));
+                        c.d[di + 3] = Math.max(c.d[di + 3], pic.rgba[si + 3]);
+                    }
+                    tl = m * 2 + pic.w;
+                }
+                c.text(fit(c, cur.title, size, 'bold', w - pad - tl), w - pad, Math.round(NP_H2 * 0.44), size, t.text, { font: 'bold', align: 'right', literal: true });
+                c.text(fit(c, cur.artist, s2, 'bold', w - pad - tl), w - pad, Math.round(NP_H2 * 0.84), s2, t.dim || t.text, { font: 'bold', align: 'right', literal: true });
             } else {
                 c.text(fit(c, one, size, 'bold', w - 2 * pad), w - pad, Math.round(h * 0.72), size, t.text, { font: 'bold', align: 'right', literal: true });
             }

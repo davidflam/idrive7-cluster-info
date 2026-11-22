@@ -68,7 +68,7 @@ function startProviders(log, opts) {
     function value(name) {
         for (const id of Object.keys(entries).sort()) {
             const v = entries[id].values && entries[id].values[name];
-            if (v && (typeof v.c === 'number' || typeof v.pct === 'number' || typeof v.text === 'string')) return Object.assign({ app: entries[id].app || id }, v);
+            if (v && (typeof v.c === 'number' || typeof v.pct === 'number' || typeof v.km === 'number' || typeof v.text === 'string')) return Object.assign({ app: entries[id].app || id }, v);
         }
         return null;
     }

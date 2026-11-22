@@ -28,6 +28,8 @@ const VALUES = {
     oil: { label: 'OIL', what: 'engine oil temperature' },
     coolant: { label: 'COOL', what: 'coolant temperature' },
     soc: { label: 'SOC', what: 'battery charge (%)' },
+    // eDrive's (2.11.4 or later): its range, as its Range page has it - beside the car's own, which no app can replace
+    range: { label: 'RANGE', what: 'electric range (eDrive)' },
     // the engine, from the car's own signals (no diagnostics): boost (the sport display's), speed, torque
     boost: { label: 'BOOST', what: 'boost pressure', engine: true },
     rpm: { label: 'RPM', what: 'engine speed', engine: true },
@@ -153,6 +155,13 @@ mgu.run({
                 }
             }
             if ((name === 'oil' || name === 'coolant') && !d.demo && G.isNum(d[name])) return { c: d[name], src: 'car signal' };
+            // the range: eDrive shares it as erange (km) while this panel asks for 'range'; km with °C, miles with °F
+            if (name === 'range') {
+                const r = providers.value('erange');
+                if (!r || !G.isNum(r.km)) return null;
+                const metric = settings.get('tempUnit') === 'c';
+                return { text: String(Math.round(metric ? r.km : r.km / 1.609344)), label: metric ? 'RANGE km' : 'RANGE mi', src: r.app };
+            }
             const p = providers.value(name);
             return p ? { c: p.c, text: typeof p.pct === 'number' ? Math.round(p.pct) + '%' : p.text, label: p.label, src: p.app } : null;
         }
@@ -186,7 +195,7 @@ mgu.run({
             extras(t) {
                 return chosen().map((k) => {
                     const v = valueNow(k);
-                    return { slot: slots().indexOf(k), label: (v && v.label) || VALUES[k].label, text: v ? (G.isNum(v.c) ? temp(v.c) : v.text || '--') : '--', col: k === 'soc' ? (v ? t.text : t.dim) : tempCol(t, k, v && v.c) };
+                    return { slot: slots().indexOf(k), label: (v && v.label) || VALUES[k].label, text: v ? (G.isNum(v.c) ? temp(v.c) : v.text || '--') : '--', col: k === 'soc' || k === 'range' ? (v ? t.text : t.dim) : tempCol(t, k, v && v.c) };
                 });
             },
             /** The kW meter's slot (0-2 among the slots in use; values with a lower slot go before it). */

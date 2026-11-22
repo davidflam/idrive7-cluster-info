@@ -18,6 +18,8 @@ A small panel of live values over the Waze map in the instrument cluster or on t
 - **Its page** shows the panel as it is now, larger, and whether each source works (turn signals, day / night,
   driver profile, the apps providing, the cluster renderer, the Waze map).
 
+**Range (this fork):** a panel item, *Range (km, from eDrive)*: eDrive's range (eDrive 2.11.4 or later shares it while this item asks for it), in km with Celsius and miles with Fahrenheit. It shows beside the car's own range, which no app can replace.
+
 ## Providing values from your app
 
 Write `/dev/shm/cluster-info/<your app id>.json` a few times a second while you have fresh values, replacing

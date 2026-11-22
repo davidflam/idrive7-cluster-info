@@ -35,7 +35,7 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
 (async () => {
     const S = {};
     SPEC.settings.forEach((s) => { S[s.key] = s.default; });
-    const handlers = {}, warns = [], loops = {};
+    const handlers = {}, warns = [], loops = {}, drawn = [];
     const ctx = {
         app: {}, ui: { onClick() {}, text() {}, image: async () => {} },
         settings: { get: (k) => S[k], set: (k, v) => { S[k] = v; }, onChange() {}, display: (k) => String(S[k]) },
@@ -44,7 +44,7 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
         signals: { watch: (iface, inst, h) => { Object.assign(handlers, h); return Promise.resolve({ available: true }); } },
         onTab() {}, hideButton() {}, onScroll() {},
         loop: (name, fps, fn) => { loops[name] = fn; },
-        theme: () => themes.theme('m_tricolour'), canvas: (w, h) => new Canvas(w, h),
+        theme: () => themes.theme('m_tricolour'), canvas: (w, h) => { const cv = new Canvas(w, h), tx = cv.text.bind(cv); cv.text = (str, ...r) => { drawn.push(String(str)); return tx(str, ...r); }; return cv; },
     };
     require(path.join(ROOT, 'apps', 'cluster_info', 'main.js'));
     await app.start(ctx);
@@ -67,7 +67,7 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
         if (wanted()) {
             fs.writeFileSync(prov.file + '.tmp', JSON.stringify({ v: 1, t: Date.now(), app: 'Test provider',
                 power: { kw: -1.6, outMax: 120, inMax: 60, old: false },
-                values: { battery: { c: 28.3 }, oil: { c: 81 }, soc: { pct: 64.4 } } }));
+                values: { battery: { c: 28.3 }, oil: { c: 81 }, soc: { pct: 64.4 }, erange: { km: 325.4 } } }));
             fs.renameSync(prov.file + '.tmp', prov.file);
         } else {
             try { fs.unlinkSync(prov.file); } catch (e) { /* gone already */ }
@@ -87,6 +87,19 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
     await sleep(400);
     await loops.MAIN();
     check('the page draws without errors', () => assert(!warns.some((w) => /TypeError|ReferenceError|is not a function/.test(w)), warns.join(' | ')));
+    // the Range item (this fork): asked for in wanted.json, eDrive's erange shown in km (°C) or miles (°F)
+    S.slot3 = 'range';
+    await sleep(1300);
+    check('the Range item: asked for, and shown from the provider\'s erange', () => {
+        const w = JSON.parse(fs.readFileSync(path.join(dir, 'wanted.json'), 'utf8'));
+        assert(w.values.indexOf('range') >= 0, JSON.stringify(w));
+        S.tempUnit = 'c';
+        drawn.length = 0; loops.MAIN();
+        assert(drawn.includes('325') && drawn.some((x) => /RANGE km/.test(x)), 'km: ' + drawn.join(' | '));
+        S.tempUnit = 'f';
+        drawn.length = 0; loops.MAIN();
+        assert(drawn.includes('202') && drawn.some((x) => /RANGE mi/.test(x)), 'miles: ' + drawn.join(' | '));
+    });
 
     // the panel goes: the provider stops and removes its file
     fs.writeFileSync(process.env.WOC_STATUS, JSON.stringify({ state: 'idle', target: 'map', hud_width_pct: 0 }));

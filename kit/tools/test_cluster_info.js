@@ -17,6 +17,15 @@ process.env.CLUSTER_INFO_DIR = path.join(tmp, 'cluster-info');
 process.env.WOC_STATUS = path.join(tmp, 'woc', 'status.json');
 fs.mkdirSync(path.dirname(process.env.WOC_STATUS));
 fs.writeFileSync(process.env.WOC_STATUS, JSON.stringify({ state: 'showing', target: 'map', hud_width_pct: 0 }));
+// a service catalog as the head unit's (/etc/oap/someip/someip-interfaces.json): a media field among others
+process.env.SOMEIP_CATALOG = path.join(tmp, 'someip-interfaces.json');
+fs.writeFileSync(process.env.SOMEIP_CATALOG, JSON.stringify({
+    interfaces: {
+        'de.bmw.infotainment.media.MediaPlayer': { fields: { currentTrackInfo: { dataRef: 'TrackInfo', notifier: { id: 1 } }, playbackState: { dataRef: 'u8', getter: { id: 2 } } } },
+        'de.bmw.infotainment.climate.Climate2': { fields: { statusACFront: { dataRef: 'u8', notifier: { id: 3 } } } },
+    },
+    datatypes: { TrackInfo: { type: 'struct', members: [{ name: 'title' }, { name: 'artist' }, { name: 'album' }] } },
+}));
 
 let app = null;
 const load = Module._load;
@@ -35,9 +44,9 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
 (async () => {
     const S = {};
     SPEC.settings.forEach((s) => { S[s.key] = s.default; });
-    const handlers = {}, warns = [], loops = {}, drawn = [];
+    const handlers = {}, warns = [], loops = {}, drawn = [], clicks = {};
     const ctx = {
-        app: {}, ui: { onClick() {}, text() {}, image: async () => {} },
+        app: {}, ui: { onClick: (id, fn) => { clicks[id] = fn; }, text() {}, image: async () => {} },
         settings: { get: (k) => S[k], set: (k, v) => { S[k] = v; }, onChange() {}, display: (k) => String(S[k]) },
         log: { info() {}, warn: (m) => warns.push(m), error: (m, e) => warns.push(m + ' ' + e) },
         spec: SPEC, dataDir: tmp,
@@ -106,6 +115,18 @@ const check = (name, fn) => { fn(); ok++; console.log('ok   ' + name); };
     await sleep(4500);
     check('panel down: wanted.json goes stale, so the provider stops and removes its file', () => assert(!wanted() && !fs.existsSync(prov.file)));
     clearInterval(prov.timer);
+    // Media signals (this fork): the catalog's media fields a page at a time, a title / artist one first; back to
+    // the panel after the last page
+    check('Media signals: the catalog\'s media fields, title / artist first, then back to the panel', () => {
+        drawn.length = 0; clicks.BTN_SIGNALS();
+        assert(drawn.some((x) => /^2 fields in the car's catalog sound like media/.test(x)), drawn.join(' | '));
+        assert(drawn.some((x) => x === 'infotainment.media.MediaPlayer.currentTrackInfo   notify') && drawn.includes('title, artist, album'), drawn.join(' | '));
+        assert(drawn.some((x) => /playbackState/.test(x)) && !drawn.some((x) => /statusACFront/.test(x)), 'only media fields: ' + drawn.join(' | '));
+        const order = drawn.filter((x) => /MediaPlayer\./.test(x));
+        assert(/currentTrackInfo/.test(order[0]), 'title / artist first: ' + order.join(' | '));
+        drawn.length = 0; clicks.BTN_SIGNALS();
+        assert(drawn.includes('Shown') && !drawn.some((x) => /sound like media/.test(x)), 'back to the panel: ' + drawn.join(' | '));
+    });
     // the turn signals and day / night as the car sends them (names, from photos of this app's page on a G05)
     const IND = require(path.join(ROOT, 'apps', 'cluster_info', 'indicators.js'));
     check('turn signals by name: right, left, hazards, off; day / night by name', () => {

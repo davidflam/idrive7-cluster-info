@@ -18,6 +18,15 @@ const G = require('./kit/gauges');
 const Car = require('./kit/car');
 const { startOverlay, drawBadge, badgeRect, mapRect } = require('./overlay');
 const { startProviders, DIR } = require('./providers');
+const { findSignals } = require('./signal_finder');
+
+/* The car's media signals, for a "now playing" line on the HUD: every field of the head unit's service catalog
+ * whose name, or a member's, sounds like the current title, artist, album, station or source (signal_finder.js).
+ * An app can read only what its app.json declares, with the car's exact names, so they are listed on this page
+ * (Media signals) and in the log, to be photographed and declared. Those naming a title or artist come first. */
+const MEDIA = /title|artist|album|interpret|track|song|station|sender|programme?name|nowplaying|playing|metadata|media|entertain|audio.?source|source.?name|tuner|radio|player|playback|music|musik/i;
+const MEDIA_FIRST = /title|artist|interpret|album|track|song|station|nowplaying/i;
+const SIG_PER_PAGE = 7;
 const IND = require('./indicators');
 
 const W = 1600, H = 520;
@@ -207,10 +216,41 @@ mgu.run({
         let overlay = null, overlayError = null;
         try { overlay = startOverlay(ctx, src); } catch (e) { overlayError = String(e); log.warn('overlay: ' + e); }
 
+        /* ---------- Media signals: the catalog's candidates, a page at a time ---------- */
+        let sigPage = 0, media = null;
+        const mediaList = () => {
+            if (!media) {
+                const f = findSignals({ match: MEDIA });
+                const first = (x) => (MEDIA_FIRST.test(x.field + ' ' + x.members.join(' ')) ? 1 : 0);
+                f.list.sort((a, b) => (first(b) - first(a)) || (b.notify - a.notify) || (a.iface + a.field).localeCompare(b.iface + b.field));
+                media = f;
+                log.info('media signals: ' + (f.error || f.list.length + ' found'));
+                f.list.forEach((x) => log.info('media signal: ' + x.iface + '.' + x.field + (x.get ? ' get' : '') + (x.notify ? ' notify' : '') + ' [' + x.members.join(', ') + ']'));
+            }
+            return media;
+        };
+        const sigPages = () => Math.max(1, Math.ceil(mediaList().list.length / SIG_PER_PAGE));
+        ui.onClick('BTN_SIGNALS', () => { sigPage = (sigPage + 1) % (sigPages() + 1); return render(); });
+        function renderSignals(cv, t) {
+            const f = mediaList(), n = sigPages();
+            G.panel(cv, t, 24, 44, 1552, 468, 'Media signals  ·  ' + sigPage + ' / ' + n);
+            cv.text(f.error ? f.error : f.list.length + ' fields in the car\'s catalog sound like media: photograph every page (the button steps through them, then back)',
+                48, 112, 18, f.error ? t.warn : t.dim, { font: 'label', literal: true });
+            f.list.slice((sigPage - 1) * SIG_PER_PAGE, sigPage * SIG_PER_PAGE).forEach((x, i) => {
+                const y = 156 + i * 50;
+                cv.text(x.iface.replace(/^de\.bmw\./, '') + '.' + x.field + (x.get ? '   get' : '') + (x.notify ? '   notify' : ''), 48, y, 19, MEDIA_FIRST.test(x.field + ' ' + x.members.join(' ')) ? t.text : t.dim, { font: 'bold', literal: true });
+                const mem = x.members.join(', ');
+                cv.text(mem ? (mem.length > 175 ? mem.slice(0, 174) + '…' : mem) : '(a single value)', 64, y + 22, 16, t.dim, { font: 'label', literal: true });
+            });
+            G.frame(cv, t, ['Cluster Info'], 0, []);
+            return ui.image('MAIN_GFX', cv);
+        }
+
         /* ---------- this app's page: the panel as it is now, larger, and every source's state ---------- */
         function render() {
             const t = ctx.theme();
             const cv = ctx.canvas(W, H).clear(t.bg);
+            if (sigPage > 0) return renderSignals(cv, t);
             G.panel(cv, t, 24, 44, 1552, 468, 'Cluster Info');
             const pw = src.power(t), ex = src.extras(t).filter((e) => e.text !== '--');
             if (pw || ex.length) {
